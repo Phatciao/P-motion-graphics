@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Character sheet (rig test)</title>
+<style>html,body{margin:0;background:#fff}svg{display:block}</style>
+<svg id="s" width="1400" height="900" viewBox="0 0 1400 900"></svg>
+<script src="../avatar.js"></script>
+<script>
+const s = document.getElementById('s');
+const POSES = [
+  { x: 110, ex: 'calm',      P: { armA: 'pocket' } },
+  { x: 290, ex: 'happy',     P: { wave: 1 } },
+  { x: 470, ex: 'surprised', P: { fx: true, armA: { s: 30, e: 20 }, armB: { s: 30, e: 20 } } },
+  { x: 650, ex: 'thinking',  P: { armB: 'chin', handB: 'relaxed' } },
+  { x: 830, ex: 'content',   P: { armA: 'cross', armB: 'cross', frontA: true } },
+  { x: 1010, ex: 'sure',     P: { run: .45, phase: .8 } },
+  { x: 1200, ex: 'happy',    P: { run: 1, phase: 1.6 } },
+];
+POSES.forEach((o, i) => { const id = 'c' + i; mountAvatar(s, id); poseAvatar(id, 1.0, Object.assign({ x: o.x, y: 420, scale: 1.15, ex: o.ex, look: null }, o.P)); });
+// hàng dưới: ngồi mép, ngồi xếp bằng, chỉ tay, bật
+const R2 = [
+  { x: 160, P: { sit: 1, ex: 'calm' } }, { x: 520, P: { sit: 1, seat: 'cross', armB: 'chin', ex: 'thinking' } },
+  { x: 840, P: { point: 1, ex: 'sure' } }, { x: 1100, P: { air: 1, ex: 'happy' } },
+];
+R2.forEach((o, i) => { const id = 'd' + i; mountAvatar(s, id); poseAvatar(id, 1.0, Object.assign({ x: o.x, y: 860, scale: 1.15 }, o.P)); });
+window.seek = () => {}; window.VIDEO = { w: 1400, h: 900, duration: 1 };
+</script>

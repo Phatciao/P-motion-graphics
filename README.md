@@ -11,6 +11,7 @@ Free video-editing skills for Claude Code. Each skill does one job.
 | [`explainer-high-energy`](skills/explainer-high-energy/README.md) | A 12–20 s hype promo for any product: beat-locked kinetic type and shape transitions. |
 | [`explainer-default`](skills/explainer-default/README.md) | A clean 45–90 s product demo: your product's UI rebuilt and filmed up close while it's used. |
 | [`explainer-engaging`](skills/explainer-engaging/README.md) | A 10–30 s one-take story: one element travels through your product's workflow. |
+| [`cartoon-explainer-video`](skills/cartoon-explainer-video/README.md) | Narrated 2D cartoon explainers: issues, sports news, history, philosophy, with research, script, characters and sound. |
 | [`sound-effects`](skills/sound-effects/README.md) | Adds real sound effects timed to the beat and measured, so it doesn't sound like cheap beeps. |
 
 > **Want the full course?** I teach my entire AI video editing process step by step in my community: **[Join Bart's AI Workshop on Skool](https://www.skool.com/barts-ai-workshop-4507/about)**

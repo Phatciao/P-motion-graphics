@@ -1,0 +1,135 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Cartoon explainer template</title>
+<!--
+  Mẫu khởi đầu cho skill cartoon-explainer-video. Minh hoạ ngôn ngữ hình ảnh chính:
+  MỘT nhân vật dẫn chuyện xuyên suốt, tương tác trực tiếp với CHỮ và vật thể. Chữ là đạo cụ có mặt phẳng để đứng.
+  Ví dụ dàn dựng: "The problem is not what we know. It's what we fail to question."
+  Hợp đồng: window.VIDEO + window.seek(t) là HÀM THUẦN của thời gian (xem references/engine.md).
+  Nhân vật nằm ở avatar.js (xem references/character-system.md). Để xuất file đơn: node scripts/inline.mjs template.html video.html
+
+  BEAT SHEET (thay bằng của bạn: thời gian | người xem thấy gì | âm thanh)
+   0.0  Nhân vật ngồi trên dấu hỏi, chớp mắt, nói                     | không có hiệu ứng, để im
+   2.2  Chữ KNOW hiện (pop), nhân vật nhìn xuống                      | pop nhỏ
+   3.0  nhân vật đứng dậy, ngồi xổm lấy đà, nhảy xuống KNOW, bẹp nhẹ     | whoosh ngắn lúc bật, impact nhẹ lúc chạm
+   3.9  KNOW trượt sang trái chở nhân vật, dấu hỏi lùi mờ, QUESTION trượt vào | whoosh êm
+   4.7  nhân vật chạy dọc chữ tới QUESTION, dừng                       | bước chân nhỏ (tick)
+   5.9  nhân vật nghiêng đầu, KHOẢNG LẶNG tới 8.2                      | im lặng
+  FONT: nhúng phông có đủ dấu tiếng Việt (Be Vietnam Pro / Inter) dạng base64 @font-face trước khi render bản cuối.
+-->
+<style>
+  html,body{margin:0;background:#0b0b0d}
+  #stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:#F6EFE3;
+         font-family:'Be Vietnam Pro',Inter,'Segoe UI',system-ui,sans-serif;color:#1d1a16}
+  #world{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:50% 50%}
+  svg{position:absolute;left:0;top:0;overflow:visible}
+  #cap{position:absolute;left:0;right:0;bottom:70px;text-align:center;font-size:44px;font-weight:600;white-space:nowrap;color:#6b6258}
+  #cap .w{display:inline-block;margin:0 .2em}
+  #grain{position:absolute;left:0;top:0;opacity:.06;mix-blend-mode:multiply}
+</style>
+<div id="stage"><div id="world"><svg id="art" width="1920" height="1080"></svg></div>
+  <canvas id="grain" width="1920" height="1080"></canvas><div id="cap"></div></div>
+<script src="avatar.js"></script>
+<script>
+const W = 1920, H = 1080, DUR = 9;
+window.VIDEO = { w: W, h: H, duration: DUR };
+/* ---- helpers (scripts/helpers.js) ---- */
+function spring(t, w = 14, z = 0.82) { if (t <= 0) return 0; if (z >= 1) return 1 - Math.exp(-w * t) * (1 + w * t); const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ease = x => (x = clamp(x), x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeO = x => 1 - Math.pow(1 - clamp(x), 3);
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const rng = s => () => (s = (s + 0x6D2B79F5) | 0, s = Math.imul(s ^ (s >>> 15), 1 | s), s ^= s + Math.imul(s ^ (s >>> 7), 61 | s), ((s ^ (s >>> 14)) >>> 0) / 4294967296);
+
+/* ---- lời dẫn: giờ từng từ (thay bằng căn thật từ file giọng đọc, xem voiceover-and-sound.md) ---- */
+const PHRASES = [
+  { a: 0.3, b: 3.2, words: [['The', .4], ['problem', .7], ['is', 1.2], ['not', 1.4], ['what', 1.7], ['we', 1.95], ['know.', 2.2]] },
+  { a: 3.3, b: 6.2, words: [["It's", 3.4], ['what', 3.8], ['we', 4.05], ['fail', 4.3], ['to', 4.8], ['question.', 5.1]] },
+];
+const WORDS = PHRASES.flatMap(p => p.words.map(([w, t], i, arr) => ({ w, t, d: ((arr[i + 1] ? arr[i + 1][1] : t + 0.7) - t) * 0.8 })));
+const talk = t => { for (const w of WORDS) if (t >= w.t && t < w.t + w.d) return 0.45 + 0.55 * Math.abs(Math.sin((t - w.t) * 22)); return 0; };
+
+/* ---- chữ là đạo cụ: đo bằng canvas để biết bề rộng và mặt phẳng trên ---- */
+const FONT = "800 170px 'Be Vietnam Pro',Inter,'Segoe UI',system-ui,sans-serif";
+const m2 = document.createElement('canvas').getContext('2d'); m2.font = FONT;
+const meas = s => { const m = m2.measureText(s); return { w: m.width, a: m.actualBoundingBoxAscent }; };
+const K = meas('KNOW'), Q = meas('QUESTION'), BASE = 880, TOP_K = BASE - K.a, TOP_Q = BASE - Q.a;
+const xK1 = 520, xK2 = 150, xQ = xK2 + K.w + 70;                      // KNOW hiện ở xK1, trượt tới xK2; QUESTION dừng ở xQ
+const QX = 1330, QY = 570, SEAT = [QX, QY - 20];                      // dấu hỏi và điểm ngồi trên đỉnh cung
+
+const art = document.getElementById('art');
+art.innerHTML = `
+ <g id="qm"><path d="M-148 124 A150 150 0 1 1 75 280 Q0 330 0 372" fill="none" stroke="#2E6BFF" stroke-width="56" stroke-linecap="round"/><circle cx="0" cy="470" r="34" fill="#2E6BFF"/></g>
+ <text id="know" y="${BASE}" style="font:${FONT}" fill="#1d1a16">KNOW</text>
+ <text id="quest" y="${BASE}" style="font:${FONT}" fill="#1d1a16">QUESTION</text>
+ <rect id="hlq" y="${BASE + 20}" height="14" rx="7" fill="#FFC93C"/>`;
+mountAvatar(art, 'hero');
+const $ = id => document.getElementById(id);
+const capEl = $('cap'), capW = PHRASES.map(p => p.words.map(([w]) => { const e = document.createElement('span'); e.className = 'w'; e.textContent = w; return e; }));
+capW.flat().forEach(e => capEl.appendChild(e));
+{ const g = $('grain').getContext('2d'), r = rng(7), im = g.createImageData(W, H);
+  for (let i = 0; i < im.data.length; i += 4) { const v = r() * 255; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); }
+
+/* ---- chuyển động của các đạo cụ (mọi thứ tính từ t) ---- */
+const knowX = t => lerp(xK1, xK2, ease(seg(t, 3.9, 4.7)));
+const questX = t => lerp(W + 40, xQ, easeO(seg(t, 3.95, 4.9)));
+const surfaceY = x => (x < xK2 + K.w + 35 ? TOP_K : TOP_Q);
+
+/* ---- đường đi của nhân vật: các đoạn nối nhau, mỗi đoạn có lý do kể chuyện ---- */
+function hero(t) {
+  const P = { x: SEAT[0], y: SEAT[1], sit: 1, run: 0, phase: 0, air: 0, squash: 0, look: [0, 0], tilt: 0, talk: talk(t), lean: 0, point: 0, ex: 'calm', face: 1, scale: 1.35 };
+  const jx0 = SEAT[0], jy0 = SEAT[1], jx1 = xK1 + K.w * 0.5, jy1 = TOP_K;
+  // 0 – 3.0: ngồi trên dấu hỏi; nhìn xuống chữ KNOW khi nó hiện
+  P.look = [lerp(0.6, 0.35, seg(t, 2.3, 2.7)), lerp(-0.6, 0.8, seg(t, 2.3, 2.7))];   // nhìn xuống chữ KNOW
+  P.ex = 'calm'; P.ex2 = 'neutral'; P.exk = seg(t, 2.2, 2.6); P.tilt = 4 * seg(t, 2.3, 2.8) * (1 - seg(t, 2.9, 3.1));
+  if (t >= 2.9 && t < 3.2) {                                          // đứng dậy, ngồi xổm lấy đà
+    P.sit = 1 - ease(seg(t, 2.9, 3.15)); P.squash = 0.14 * ease(seg(t, 3.0, 3.2));
+  } else if (t >= 3.2 && t < 3.85) {                                  // bật: parabol từ dấu hỏi xuống KNOW
+    const u = seg(t, 3.2, 3.85); P.sit = 0; P.air = Math.sin(Math.PI * Math.min(1, u * 1.15)) ** 0.6;
+    P.x = lerp(jx0, jx1, ease(u)); P.y = lerp(jy0, jy1, u * u) - 4 * 45 * u * (1 - u); P.squash = -0.10 * (1 - u) * (u < 0.4); P.look = [0.6, 0.5]; P.ex = 'happy';
+  } else if (t >= 3.85 && t < 4.7) {                                  // chạm đất bẹp nhẹ rồi được chữ chở đi
+    P.sit = 0; P.x = knowX(t) + K.w * 0.5; P.y = TOP_K; P.squash = 0.2 * Math.exp(-(t - 3.85) * 12) * Math.cos((t - 3.85) * 22); P.look = [0.7, -0.2]; P.ex = 'happy'; P.ex2 = 'neutral'; P.exk = seg(t, 3.9, 4.4);
+  } else if (t >= 4.7) {                                              // chạy dọc chữ tới QUESTION rồi dừng
+    const x0 = xK2 + K.w * 0.5, x1 = xQ + 60, f = x => lerp(x0, x1, ease(seg(x, 4.7, 5.55)));
+    P.sit = 0; P.x = f(t); P.y = surfaceY(P.x);
+    const v = Math.abs(f(t + 0.02) - f(t - 0.02)) / 0.04; P.run = clamp(v / 1000); P.phase = (P.x - x0) / 95; P.ex = 'neutral'; P.lean = 8 * P.run;
+    if (t > 4.7 && t < 5.55) P.y -= 12 * Math.abs(Math.sin(P.phase)) * P.run;
+    P.look = [0.6, 0];
+    if (t >= 5.9) { P.ex = 'neutral'; P.ex2 = 'thinking'; P.exk = ease(seg(t, 5.9, 6.5)) * (1 - ease(seg(t, 8.2, 8.7))); P.tilt = null; P.look = null; P.armB = 'chin'; P.handB = 'relaxed'; }   // nghiêng đầu nghĩ ngợi, khoảng lặng
+  }
+  if (t < 2.9) P.sit = 1;
+  return P;
+}
+
+/* ---- seek(t): hàm thuần ---- */
+window.seek = t => {
+  t = ((t % DUR) + DUR) % DUR;
+  const kx = knowX(t), qx = questX(t), pk = spring(t - 2.2, 13, 0.62);
+  $('know').setAttribute('x', kx); $('know').setAttribute('opacity', clamp(pk * 3)); $('know').setAttribute('transform', `translate(${K.w / 2 + kx - 0} ${BASE - K.a / 2}) scale(${0.85 + 0.15 * pk}) translate(${-(K.w / 2 + kx)} ${-(BASE - K.a / 2)})`);
+  $('quest').setAttribute('x', qx);
+  const qf = 1 - easeO(seg(t, 3.9, 4.7));
+  $('qm').setAttribute('transform', `translate(${QX + (1 - qf) * 180} ${QY}) rotate(${(1 - qf) * 10}) scale(.8)`); $('qm').setAttribute('opacity', qf);
+  const hl = seg(t, 5.15, 5.7);
+  $('hlq').setAttribute('x', xQ); $('hlq').setAttribute('width', Q.w * ease(hl)); $('hlq').setAttribute('opacity', hl > 0 && t < 8.8 ? 1 : 0);
+  const P = hero(t); if (P.armB === 'chin' && P.exk < 0.05) P.armB = null; poseAvatar('hero', t, P);
+  // camera: gần như đứng yên, trôi rất chậm theo nhân vật (không zoom mạnh, không rung)
+  const cx = lerp(0, -(P.x - 960) * 0.05, 1), s = 1 + 0.025 * t / DUR;
+  $('world').style.transform = `translate(${cx}px,0) scale(${s})`;
+  // phụ đề: nhỏ, nhạt, không tranh chú ý với chữ đạo cụ
+  PHRASES.forEach((p, pi) => p.words.forEach(([, tt], i) => {
+    const e = capW[pi][i], on = t >= p.a && t < p.b;
+    e.style.display = on ? 'inline-block' : 'none'; e.style.opacity = seg(t, tt - 0.05, tt + 0.15);
+  }));
+};
+
+/* ---- âm thanh: giọng đọc trước, hiệu ứng thật sau. Không tổng hợp beep trong mã. ---- */
+const loadBuf = (ctx, url) => new Promise((res, rej) => { const x = new XMLHttpRequest(); x.open('GET', url); x.responseType = 'arraybuffer'; x.onload = () => ctx.decodeAudioData(x.response).then(res, rej); x.onerror = rej; x.send(); });
+window.buildAudio = async ctx => {
+  const play = (buf, at, gain = 1) => { const s = ctx.createBufferSource(), g = ctx.createGain(); s.buffer = buf; g.gain.value = gain; s.connect(g); g.connect(ctx.destination); s.start(at); };
+  try { play(await loadBuf(ctx, 'audio/voice.mp3'), 0, 1); } catch (e) { /* chưa có giọng: bản nháp im lặng */ }
+  // const CUES = [{ t: 2.2, f: 'audio/pop.ogg', g: .3 }, { t: 3.15, f: 'audio/whoosh.ogg', g: .4 }, { t: 3.85, f: 'audio/impact.ogg', g: .35 }];
+  // for (const c of CUES) { try { play(await loadBuf(ctx, c.f), c.t, c.g); } catch (e) {} }
+};
+seek(0);
+</script>
