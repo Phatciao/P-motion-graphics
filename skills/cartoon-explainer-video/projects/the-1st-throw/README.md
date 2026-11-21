@@ -30,3 +30,8 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Kết cảnh tua ngược: gỡ vật mới nhất trước, tay ngược lại, về còn một túi, P1 cầm túi đầu tiên, dừng trước khi chạm đất, cắt đen, end card.
 - Âm thanh: tổng hợp placeholder, giảm ở cảnh 11, gần im lặng trước túi đầu.
 - Giới hạn: là animatic (chưa render final); rig dạng paper-doll cắt từ ảnh nên chân bước kiểu ngang; có thể còn vệt mảnh giữa hai chân ở một số nhân vật.
+
+## v2.1 (tay/chân/đồ cầm vẽ lại bằng vector)
+- Thân + đầu vẫn là ảnh cắt từ S1–S5 (đã bỏ phần tay/chân khỏi thân). Tay (vai–khuỷu–cổ tay, tay áo, bàn tay mở/nắm) và chân (đùi–cẳng, đầu gối gập, giày) được vẽ vector trong `video.html` (`mkArm/poseArm`, `mkLeg/poseLeg`), thông số từng nhân vật nằm ở `d.vec` trong `assets/chars.js` (sinh bởi script build ngoài repo).
+- 4 món cầm tay (túi đen buộc, cốc cà phê, túi giấy nhàu, vỏ gói) là SVG vẽ tay, không còn trace từ ảnh.
+- Giới hạn: vai còn hơi tròn, tay cầm cốc của S2 hơi cứng, bàn tay chưa có ngón riêng.
