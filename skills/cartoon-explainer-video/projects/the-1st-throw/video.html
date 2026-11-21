@@ -186,13 +186,13 @@ function poseArm(A, d, ang, bend, holding) {
   const s = A.a, S = s.S, E0 = s.E, H0 = s.H, rot = (v, a) => [v[0] * Math.cos(a * RAD) - v[1] * Math.sin(a * RAD), v[0] * Math.sin(a * RAD) + v[1] * Math.cos(a * RAD)];
   const e = rot([E0[0] - S[0], E0[1] - S[1]], ang), E = [S[0] + e[0], S[1] + e[1]], h = rot([H0[0] - E0[0], H0[1] - E0[1]], ang + bend), H = [E[0] + h[0], E[1] + h[1]];
   const hl = Math.hypot(h[0], h[1]), u = [h[0] / hl, h[1] / hl], Wr = [H[0] - u[0] * 20, H[1] - u[1] * 20], tc = s.tc, C = [E[0] + h[0] * tc, E[1] + h[1] * tc];
-  const [wS, wE, wC] = s.w, a1 = Math.atan2(E[0] - S[0], E[1] - S[1]), a2 = Math.atan2(C[0] - E[0], C[1] - E[1]), n1 = nrm(a1), n2 = nrm(a2), nk = [n1[0] + n2[0], n1[1] + n2[1]], nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk[0] /= nl * cs; nk[1] /= nl * cs;
+  const [wS, wE, wC] = s.w.map(v => v * .72), a1 = Math.atan2(E[0] - S[0], E[1] - S[1]), a2 = Math.atan2(C[0] - E[0], C[1] - E[1]), n1 = nrm(a1), n2 = nrm(a2), nk = [n1[0] + n2[0], n1[1] + n2[1]], nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk[0] /= nl * cs; nk[1] /= nl * cs;
   const P = (c, n, w, k) => `${f(c[0] + n[0] * w / 2 * k)} ${f(c[1] + n[1] * w / 2 * k)}`;
   const sd = `M${P(S, n1, wS - 5, -1)}L${P(E, nk, wE - 5, -1)}L${P(C, n2, wC - 5, -1)}L${P(C, n2, wC - 5, 1)}L${P(E, nk, wE - 5, 1)}L${P(S, n1, wS - 5, 1)}Z`; A.sl.setAttribute('d', sd); A.slo.setAttribute('d', sd);
-  A.cap.setAttribute('cx', f(S[0])); A.cap.setAttribute('r', f(wS / 2 - 6)); A.capo.setAttribute('r', 0); A.cap.setAttribute('cy', f(S[1] + 10)); A.eb.setAttribute('cx', f(E[0])); A.eb.setAttribute('cy', f(E[1])); A.eb.setAttribute('r', f(wE / 2 - 1));
+  A.cap.setAttribute('cx', f(S[0])); A.cap.setAttribute('r', f(wS / 2 - 1)); A.capo.setAttribute('r', f(wS / 2 + 1.5)); A.capo.setAttribute('cx', f(S[0])); A.capo.setAttribute('cy', f(S[1] + 3)); A.cap.setAttribute('cy', f(S[1] + 3)); A.eb.setAttribute('cx', f(E[0])); A.eb.setAttribute('cy', f(E[1])); A.eb.setAttribute('r', f(wE / 2 - 1));
   const cb = [C[0] - Math.sin(a2) * 8, C[1] - Math.cos(a2) * 8]; A.cuff.setAttribute('d', `M${P(cb, n2, wC + 2, -1)}L${P(C, n2, wC + 2, -1)}L${P(C, n2, wC + 2, 1)}L${P(cb, n2, wC + 2, 1)}Z`);
   const inn = s.side === 'L' ? 1 : -1; A.fold.setAttribute('d', `M${P(E, nk, wE, inn * .35)}q${f(-inn * 3)} 9 ${f(inn * 2)} 20`);
-  const sw = s.skinw || 20; A.fore.setAttribute('d', `M${P(C, n2, sw, -1)}L${P(Wr, n2, sw * .9, -1)}L${P(Wr, n2, sw * .9, 1)}L${P(C, n2, sw, 1)}Z`);
+  const sw = (s.skinw || 20) * .85; A.fore.setAttribute('d', `M${P(C, n2, sw, -1)}L${P(Wr, n2, sw * .9, -1)}L${P(Wr, n2, sw * .9, 1)}L${P(C, n2, sw, 1)}Z`);
   const th = Math.atan2(-u[0], u[1]) / RAD, mir = s.side === 'L' ? 1 : -1, sc = 1.12;
   A.hand.setAttribute('transform', `translate(${f(Wr[0])} ${f(Wr[1])}) rotate(${f(th)}) scale(${mir * sc} ${sc})`);
   const fist = holding ? '' : 'none', open = holding ? 'none' : '';
