@@ -17,3 +17,16 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Montage uses time jumps (new person starts mid-stride); pile has 9 items max.
 - Reverse: wide steps remove items, two reversed close-ups; not every close-up is rewound.
 - Not yet checked: smoothness of leave/turn animation frame by frame; final polish, real foley.
+
+---
+
+## v2 (animatic nâng cấp theo S1–S5 + brief enhancement)
+
+- `video.html` = v2; `video_v1.html` = bản silhouette cũ; `assets/chars.js` = bộ phận nhân vật (đầu/thân/chân dạng PNG, vật dụng đã vector hoá bằng vtracer cho nét sắc).
+- Casting: S1 = Person 1 (áo xanh rêu, túi đen buộc), S2 = Person 2 (áo vàng mù tạt, ly cà phê), S3 = Person 3 (áo xanh, ba lô, túi giấy nhàu), S4 = 3 người qua đường trong montage, S5 = người qua đường cuối (cảnh 10, vỏ gói).
+- Diễn xuất: lớp biểu cảm (mắt, mày, miệng) đè lên mặt gốc, đầu cúi/nghiêng, đổi trọng tâm; độ do dự giảm dần P2 > P3 > các người sau > người cuối không do dự.
+- Vật lý rơi theo trọng lượng (túi nặng bẹp, hộp nảy xoay, ly lăn, vỏ gói bay lượn); cận cảnh tay khớp màu tay áo/vật với cảnh wide.
+- Đống rác nhỏ hơn 15–25%, xoay và chồng đa dạng; montage có trạng thái đống rác khác nhau.
+- Kết cảnh tua ngược: gỡ vật mới nhất trước, tay ngược lại, về còn một túi, P1 cầm túi đầu tiên, dừng trước khi chạm đất, cắt đen, end card.
+- Âm thanh: tổng hợp placeholder, giảm ở cảnh 11, gần im lặng trước túi đầu.
+- Giới hạn: là animatic (chưa render final); rig dạng paper-doll cắt từ ảnh nên chân bước kiểu ngang; có thể còn vệt mảnh giữa hai chân ở một số nhân vật.
