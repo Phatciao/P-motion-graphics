@@ -43,3 +43,10 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Tay: vai ở mép thân để tay xa cũng thấy; tay xách đồ dùng góc `hold`, tay rảnh cùng độ cong khuỷu (12°) và đánh nhẹ ngược chân. Bàn tay = hình chữ nhật một đầu bo tròn, to hơn cổ tay (×1,85 chiều rộng, ×0,8 chiều dài).
 - Đầu: `hflip` cho đầu gốc quay sai hướng (S3, S4c); `hdn/hbk` dịch đầu xuống/lùi (S3, `noneck`), `hbk` âm = ra trước (S4a). Cổ vector theo tâm cổ `ncx`/bề rộng `nw` của từng đầu; cô áo vàng (S2) lệch cổ riêng vì không có ve áo.
 - Giới hạn: bàn tay chưa có ngón; S3 mất dải bóng cằm nhỏ/sợi tóc dưới tai do dọn mảng xanh; `assets/chars.js` còn chứa PNG thân cũ không dùng.
+
+## v2.4
+- Walk: elbow flexes with the swing, head lags the body, torso lean/sway follows the step, quicker foot lift and softer landing.
+- Hands: every hand (wide shots, carrying, close-ups) uses the one "drop hand" shape (`handShape`).
+- S5: both legs are the same white (no far-leg darkening for her).
+- Rewind (T 77 to ~85): one continuous reverse of the whole film (`RWR` speed table, ramp in/out); everyone walks backwards, close-ups return items to hands, VHS overlay (REW, timecode counting down, blur by speed), tape whirr and stop click; holds P1 before the release, then black end card at 87.
+- Set: tall street lamp bent over the pile, soft light cone, pool of light and a vignette (`wLight`).
