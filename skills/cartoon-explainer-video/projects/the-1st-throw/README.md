@@ -35,3 +35,11 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Thân + đầu vẫn là ảnh cắt từ S1–S5 (đã bỏ phần tay/chân khỏi thân). Tay (vai–khuỷu–cổ tay, tay áo, bàn tay mở/nắm) và chân (đùi–cẳng, đầu gối gập, giày) được vẽ vector trong `video.html` (`mkArm/poseArm`, `mkLeg/poseLeg`), thông số từng nhân vật nằm ở `d.vec` trong `assets/chars.js` (sinh bởi script build ngoài repo).
 - 4 món cầm tay (túi đen buộc, cốc cà phê, túi giấy nhàu, vỏ gói) là SVG vẽ tay, không còn trace từ ảnh.
 - Giới hạn: vai còn hơi tròn, tay cầm cốc của S2 hơi cứng, bàn tay chưa có ngón riêng.
+
+## v2.3 (rig vector toàn thân, góc 3/4)
+- Chỉ còn **đầu + biểu cảm** là ảnh cắt từ S1–S5 (đầu giữ cằm/cổ gốc, cắt lại từ `cut/`); thân, tay, chân, bàn tay, đồ cầm đều là vector trong `video.html` (`rigSpec`, `rigPose`, `torsoSVG`, `drawPerson`).
+- Góc nhìn 3/4: thân quay theo yaw liên tục `psiT = 90° − 35°·dirF`, chân tiến dần về góc nghiêng khi đi. Khi quay đầu hướng (0,7 s) thân xoay qua chính diện, đầu lật theo dấu scaleX; không còn flip sprite.
+- Chân: IK 2 khớp, chu kỳ bước theo quãng đường, nhấc chân + nhún hông; lớp chân nằm dưới thân, bắp chân dày hơn ống chân; đầu chân ẩn dưới gấu áo.
+- Tay: vai ở mép thân để tay xa cũng thấy; tay xách đồ dùng góc `hold`, tay rảnh cùng độ cong khuỷu (12°) và đánh nhẹ ngược chân. Bàn tay = hình chữ nhật một đầu bo tròn, to hơn cổ tay (×1,85 chiều rộng, ×0,8 chiều dài).
+- Đầu: `hflip` cho đầu gốc quay sai hướng (S3, S4c); `hdn/hbk` dịch đầu xuống/lùi (S3, `noneck`), `hbk` âm = ra trước (S4a). Cổ vector theo tâm cổ `ncx`/bề rộng `nw` của từng đầu; cô áo vàng (S2) lệch cổ riêng vì không có ve áo.
+- Giới hạn: bàn tay chưa có ngón; S3 mất dải bóng cằm nhỏ/sợi tóc dưới tai do dọn mảng xanh; `assets/chars.js` còn chứa PNG thân cũ không dùng.

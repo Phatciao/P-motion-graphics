@@ -96,7 +96,7 @@ SEGS.forEach(g => { // integrate speed -> x(t) table
   for (let i = 0; i < n; i++) { const t = g.a + i * .02; g.T.push(g.xref + g.sgn * I(t)); }
 });
 const xAt = (g, t) => { const k = cl((t - g.a) / .02, 0, g.T.length - 1.001), i = Math.floor(k); return lerp(g.T[i], g.T[i + 1], k - i); };
-const dirAt = (g, t) => { let d = g.dirK[0][1]; for (let i = 1; i < g.dirK.length; i++) { const k = sm((t - g.dirK[i][0]) / .3); d = lerp(g.dirK[i - 1][1], g.dirK[i][1], k); if (t < g.dirK[i][0] + .3) break; } return d; };
+const dirAt = (g, t) => { let d = g.dirK[0][1]; for (let i = 1; i < g.dirK.length; i++) { const k = sm((t - g.dirK[i][0]) / .7); d = lerp(g.dirK[i - 1][1], g.dirK[i][1], k); if (t < g.dirK[i][0] + .7) break; } return d; };
 
 // ---------------- expressions ----------------
 const EXP = {
@@ -137,78 +137,186 @@ function buildBG() {
   cBG.innerHTML = c;
 }
 
-// ---------------- vector limbs (hand-drawn, replace the raster cut-outs) ----------------
-const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.substr(i, 2), 16) * k).toString(16).padStart(2, '0')).join('');
-const RAD = Math.PI / 180, nrm = a => [Math.cos(a), -Math.sin(a)];
-function mkLeg(d, side, par) {
-  const V = d.vec.legs, g = mk('g', {}, par), L = { g, side };
-  L.shoe = mk('path', { fill: V.sh.c, stroke: shade(V.sh.c, .7), 'stroke-width': 1.4, 'stroke-linejoin': 'round' }, mk('g', {}, g));
-  L.foot = L.shoe.parentNode; L.sole = mk('path', { fill: V.sh.sole }, L.foot); L.foot.insertBefore(L.sole, L.shoe.nextSibling);
-  L.ank = V.skin ? mk('rect', { fill: V.skin }, g) : null;
-  L.pants = mk('path', { fill: V.pants, stroke: V.pants, 'stroke-width': 1.2, 'stroke-linejoin': 'round' }, g);
-  L.cuff = mk('path', { fill: shade(V.pants, .84) }, g); L.seam = mk('path', { fill: 'none', stroke: shade(V.pants, .8), 'stroke-width': 1.6, 'stroke-linecap': 'round' }, g);
-  L.crease = mk('path', { fill: 'none', stroke: shade(V.pants, .88), 'stroke-width': 1.3, 'stroke-linecap': 'round' }, g);
+// ---------------- all-vector body rig, 3/4 walk (only the head is raster) ----------------
+const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.substr(i, 2), 16) * k)).toString(16).padStart(2, '0')).join('');
+const RAD = Math.PI / 180, nrm = a => [Math.cos(a), -Math.sin(a)], AH = 17;
+const RIGX = {
+  s1: { ty: 'jacket', inner: '#e0cfb6', iw: .3, yb: 352, toe: 46, heel: 16, hold: [6, 12] },
+  s2: { ty: 'sweater', yb: 318, toe: 44, heel: 16, hold: [6, 108] },
+  s3: { ty: 'shirt', inner: '#f1efe9', pack: '#7a523b', yb: 362, toe: 46, heel: 16, hold: [6, 12] },
+  s4a: { ty: 'sweater', collar: '#dad3bf', yb: 314, toe: 46, heel: 16, hold: [6, 12] },
+  s4b: { ty: 'jacket', inner: '#2b2c37', iw: .34, yb: 318, toe: 40, heel: 14, hold: [6, 12] },
+  s4c: { ty: 'hoodie', inner: '#f4f0e9', yb: 322, toe: 44, heel: 16, hold: [6, 12] },
+  s5: { ty: 'jacket', inner: '#6c6f73', iw: .32, yb: 324, toe: 44, heel: 16, hold: [6, 12] },
+};
+function rigSpec(d, n) {
+  if (d._rs) return d._rs;
+  const V = d.vec, R = RIGX[n], A = V.arms, lg = V.legs, fr = A.find(a => !a.carry) || A[0];
+  const hip0 = lg.top + 14, ground = d.h, Ltot = (ground - AH - hip0) / .985;
+  const Wsh = Math.abs(A[1].S[0] - A[0].S[0]), hipW = lg.R.t[1] - lg.L.t[0];
+  d._rs = { R, hip0, ground, Ltot, Wsh, hipW, xm: d.xm, shJ: fr.S[1], shY: d.neck + 22, hem: R.yb,
+    L1a: Math.hypot(fr.E[0] - fr.S[0], fr.E[1] - fr.S[1]), L2a: Math.max(70, Math.hypot(fr.H[0] - fr.E[0], fr.H[1] - fr.E[1]) - 20),
+    wT: .88 * (lg.L.t[1] - lg.L.t[0]), wB: .6 * .88 * (lg.L.t[1] - lg.L.t[0]), hcx: d.parts.head.ncx, nw: d.parts.head.nw, ns: (R.ty === 'sweater' && !R.collar) ? .27 : R.ty === 'shirt' ? .24 : .15 };
+  return d._rs;
+}
+function mkLeg(d, n, par) {
+  const V = d.vec.legs, L = { g: par };
+  L.foot = mk('g', {}, par);
+  L.shoe = mk('path', { fill: V.sh.c, stroke: shade(V.sh.c, .7), 'stroke-width': 1.4, 'stroke-linejoin': 'round' }, L.foot);
+  L.sole = mk('path', { fill: V.sh.sole }, L.foot);
+  L.ank = V.skin ? mk('path', { fill: V.skin }, par) : null;
+  L.pants = mk('path', { fill: V.pants, stroke: V.pants, 'stroke-width': 1.2, 'stroke-linejoin': 'round' }, par);
+  L.cuff = mk('path', { fill: shade(V.pants, .82) }, par);
+  L.crease = mk('path', { fill: 'none', stroke: shade(V.pants, .86), 'stroke-width': 1.3, 'stroke-linecap': 'round' }, par);
   return L;
 }
-function poseLeg(L, d, aT, aS, aF, lift) {
-  const V = d.vec.legs, sp = V[L.side], top = V.top, hem = V.hem, tc = (sp.t[0] + sp.t[1]) / 2, bc = (sp.b[0] + sp.b[1]) / 2;
-  const wT = sp.t[1] - sp.t[0], wB = sp.b[1] - sp.b[0], wK = (wT + wB) / 2 * 1.02, L1 = (hem - top) * .5, th0 = Math.atan2(bc - tc, hem - top);
-  const a1 = th0 + aT * RAD, a2 = a1 + aS * RAD, T0 = [tc - Math.sin(a1) * 24, top - Math.cos(a1) * 24 - lift];
-  const K = [tc + Math.sin(a1) * L1, top - lift + Math.cos(a1) * L1], A = [K[0] + Math.sin(a2) * L1, K[1] + Math.cos(a2) * L1];
-  const n1 = nrm(a1), n2 = nrm(a2), nk = [n1[0] + n2[0], n1[1] + n2[1]], nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.7, nl / 2); nk[0] /= nl * cs; nk[1] /= nl * cs;
+function poseLeg(L, d, rs, Hp, Kp, Ap, fa, mx, sq) {
+  const R = rs.R, wT = rs.wT, wB = rs.wB, wK = wT * .78, wCa = wT * .9, Cc = [Kp[0] + (Ap[0] - Kp[0]) * .3, Kp[1] + (Ap[1] - Kp[1]) * .3];
+  const a1 = Math.atan2(Kp[0] - Hp[0], Kp[1] - Hp[1]), a2 = Math.atan2(Ap[0] - Kp[0], Ap[1] - Kp[1]), n1 = nrm(a1), n2 = nrm(a2);
+  let nk = [n1[0] + n2[0], n1[1] + n2[1]]; const nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk = [nk[0] / nl / cs, nk[1] / nl / cs];
+  const hasSk = !!L.ank, up = [Hp[0] - Math.sin(a1) * 8, Hp[1] - Math.cos(a1) * 8], Ae = [Ap[0] - Math.sin(a2) * (hasSk ? 11 : 4), Ap[1] - Math.cos(a2) * (hasSk ? 11 : 4)];
   const P = (c, n, w, k) => `${f(c[0] + n[0] * w / 2 * k)} ${f(c[1] + n[1] * w / 2 * k)}`;
-  L.pants.setAttribute('d', `M${P(T0, n1, wT, -1)}L${P(K, nk, wK, -1)}L${P(A, n2, wB, -1)}L${P(A, n2, wB, 1)}L${P(K, nk, wK, 1)}L${P(T0, n1, wT, 1)}Z`);
-  const hb = [A[0] - Math.sin(a2) * 8, A[1] - Math.cos(a2) * 8];
-  L.cuff.setAttribute('d', `M${P(hb, n2, wB, -1)}L${P(A, n2, wB, -1)}L${P(A, n2, wB, 1)}L${P(hb, n2, wB, 1)}Z`);
-  const inner = L.side === 'L' ? 1 : -1; L.seam.setAttribute('d', `M${P([tc + Math.sin(a1) * 20, top - lift + Math.cos(a1) * 20], n1, wT, inner)}L${P(K, nk, wK, inner)}L${P(A, n2, wB, inner)}`);
-  L.crease.setAttribute('d', `M${P(K, nk, wK, -.5)}q${f(2 * nk[0] * inner)} 7 ${f(-3 * inner)} 14`);
-  // shoe (coordinates relative to the ankle centre)
-  const sh = V.sh, [hx, tx] = sh[L.side], dd = Math.sign(tx - hx) || 1, hr = hx - bc, tr = tx - bc, y0 = sh.y0 - hem, y1 = sh.y1 - hem, e0 = sp.b[0] - bc, e1 = sp.b[1] - bc, hE = dd > 0 ? e0 : e1, iE = dd > 0 ? e1 : e0;
-  L.shoe.setAttribute('d', `M${hE} ${y0}L${hr} ${y1 - 7}Q${hr} ${y1} ${hr + dd * 5} ${y1}L${tr - dd * 9} ${y1}Q${tr} ${y1} ${tr} ${y1 - 7}Q${tr - dd} ${y1 - 15} ${tr - dd * 16} ${y1 - 17}Q${iE + dd * 8} ${y1 - 19} ${iE} ${y0}Z`);
-  L.sole.setAttribute('d', `M${hr} ${y1 - 5}L${tr} ${y1 - 7}Q${tr} ${y1} ${tr - dd * 9} ${y1}L${hr + dd * 5} ${y1}Q${hr} ${y1} ${hr} ${y1 - 5}Z`);
-  L.foot.setAttribute('transform', `translate(${f(A[0])} ${f(A[1])}) rotate(${f(aF)})`);
-  if (L.ank) { L.ank.setAttribute('x', f(A[0] + e0 * .8)); L.ank.setAttribute('y', f(A[1] - 6)); L.ank.setAttribute('width', f((e1 - e0) * .8)); L.ank.setAttribute('height', f(y0 + 10)); }
+  L.pants.setAttribute('d', `M${P(up, n1, wT, -1)}L${P(Kp, nk, wK, -1)}Q${P(Cc, n2, wCa * 1.12, -1)} ${P(Ae, n2, wB, -1)}L${P(Ae, n2, wB, 1)}Q${P(Cc, n2, wCa * 1.12, 1)} ${P(Kp, nk, wK, 1)}L${P(up, n1, wT, 1)}Z`);
+  const hb = [Ae[0] - Math.sin(a2) * 8, Ae[1] - Math.cos(a2) * 8];
+  L.cuff.setAttribute('d', `M${P(hb, n2, wB, -1)}L${P(Ae, n2, wB, -1)}L${P(Ae, n2, wB, 1)}L${P(hb, n2, wB, 1)}Z`);
+  L.crease.setAttribute('d', `M${P(Kp, nk, wK, -.35)}q${f(-nk[0] * 3)} 7 ${f(2)} 13`);
+  if (L.ank) L.ank.setAttribute('d', `M${P(Ae, n2, wB * .75, -1)}L${P([Ap[0], Ap[1] + 4], n2, wB * .75, -1)}L${P([Ap[0], Ap[1] + 4], n2, wB * .75, 1)}L${P(Ae, n2, wB * .75, 1)}Z`);
+  const hl = R.heel, tl = R.toe;
+  L.shoe.setAttribute('d', `M${-hl + 4} -15L${-hl} 6Q${-hl - 1} ${AH} ${-hl + 7} ${AH}L${tl - 12} ${AH}Q${tl} ${AH} ${tl} 8Q${tl - 1} 0 ${tl - 16} -5Q6 -9 8 -15Z`);
+  L.sole.setAttribute('d', `M${-hl} 11L${tl} 10Q${tl} ${AH} ${tl - 12} ${AH}L${-hl + 7} ${AH}Q${-hl - 1} ${AH} ${-hl} 11Z`);
+  L.foot.setAttribute('transform', `translate(${f(Ap[0])} ${f(Ap[1])}) rotate(${f(fa * mx)}) scale(${f(mx * sq)} 1)`);
 }
-const HAND_R = 'M-11 -4Q-14 20 -10 36Q-4 44 3 42Q11 38 11 24L10 -4ZM8 6Q19 14 16 28Q11 28 8 18Z', HAND_F = 'M-12 -3L12 -3Q15 14 12 30Q6 36 -2 35Q-12 33 -13 20ZM8 8Q22 12 18 27Q12 28 8 22Z';
+const HAND_R = 'M-9 0H9V26Q9 37 0 37Q-9 37 -9 26Z', HAND_F = 'M-10 0H10V24Q10 34 0 34Q-10 34 -10 24Z';
 function mkArm(d, a, par) {
-  const A = { a, g: mk('g', {}, par) }, sk = d.skin, sl = d.sleeve;
+  const A = { a, g: mk('g', {}, par) }, sk = d.skin, sl = d.sleeve, ss = shade(sk, .8);
   A.fore = mk('path', { fill: sk }, A.g);
-  A.hand = mk('g', {}, A.g); const ss = shade(sk, .8);
-  A.hr = mk('path', { d: HAND_R, fill: sk, stroke: ss, 'stroke-width': 1.6, 'stroke-linejoin': 'round' }, A.hand); A.hrl = mk('path', { d: 'M-5 26L-4 38M2 25L3 38', stroke: ss, 'stroke-width': 1.5, 'stroke-linecap': 'round', fill: 'none' }, A.hand);
-  A.hf = mk('path', { d: HAND_F, fill: sk, stroke: ss, 'stroke-width': 1.6, 'stroke-linejoin': 'round', display: 'none' }, A.hand); A.hfl = mk('path', { d: 'M-9 12Q0 15 9 12M-9 21Q0 24 9 21', stroke: ss, 'stroke-width': 1.5, 'stroke-linecap': 'round', fill: 'none', display: 'none' }, A.hand);
-  A.slo = mk('path', { fill: shade(sl, .8), stroke: shade(sl, .8), 'stroke-width': 9, 'stroke-linejoin': 'round' }, A.g); A.sl = mk('path', { fill: sl, stroke: sl, 'stroke-width': 5, 'stroke-linejoin': 'round' }, A.g);
-  A.capo = mk('circle', { fill: shade(sl, .8) }, A.g); A.cap = mk('circle', { fill: sl }, A.g); A.eb = mk('circle', { fill: sl }, A.g);
+  A.hand = mk('g', {}, A.g);
+  A.hr = mk('path', { d: HAND_R, fill: sk, stroke: ss, 'stroke-width': 1.6, 'stroke-linejoin': 'round' }, A.hand); A.hrl = mk('path', { fill: 'none', display: 'none' }, A.hand);
+  A.hf = mk('path', { d: HAND_F, fill: sk, stroke: ss, 'stroke-width': 1.6, 'stroke-linejoin': 'round', display: 'none' }, A.hand); A.hfl = mk('path', { fill: 'none', display: 'none' }, A.hand);
+  A.slo = mk('path', { fill: shade(sl, .8), stroke: shade(sl, .8), 'stroke-width': 9, 'stroke-linejoin': 'round' }, A.g);
+  A.capo = mk('circle', { fill: shade(sl, .8) }, A.g); A.sl = mk('path', { fill: sl, stroke: sl, 'stroke-width': 5, 'stroke-linejoin': 'round' }, A.g);
+  A.cap = mk('circle', { fill: sl }, A.g); A.eb = mk('circle', { fill: sl }, A.g);
   A.cuff = mk('path', { fill: shade(sl, .82) }, A.g); A.fold = mk('path', { fill: 'none', stroke: shade(sl, .8), 'stroke-width': 2, 'stroke-linecap': 'round' }, A.g);
-  [A.slo, A.capo, A.sl, A.cap, A.eb, A.cuff, A.fold].forEach(e => A.g.appendChild(e));
   return A;
 }
-function poseArm(A, d, ang, bend, holding) {
-  const s = A.a, S = s.S, E0 = s.E, H0 = s.H, rot = (v, a) => [v[0] * Math.cos(a * RAD) - v[1] * Math.sin(a * RAD), v[0] * Math.sin(a * RAD) + v[1] * Math.cos(a * RAD)];
-  const e = rot([E0[0] - S[0], E0[1] - S[1]], ang), E = [S[0] + e[0], S[1] + e[1]], h = rot([H0[0] - E0[0], H0[1] - E0[1]], ang + bend), H = [E[0] + h[0], E[1] + h[1]];
-  const hl = Math.hypot(h[0], h[1]), u = [h[0] / hl, h[1] / hl], Wr = [H[0] - u[0] * 20, H[1] - u[1] * 20], tc = s.tc, C = [E[0] + h[0] * tc, E[1] + h[1] * tc];
-  const [wS, wE, wC] = s.w.map(v => v * .72), a1 = Math.atan2(E[0] - S[0], E[1] - S[1]), a2 = Math.atan2(C[0] - E[0], C[1] - E[1]), n1 = nrm(a1), n2 = nrm(a2), nk = [n1[0] + n2[0], n1[1] + n2[1]], nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk[0] /= nl * cs; nk[1] /= nl * cs;
+function poseArm(A, S, E, H, holding, mir) {
+  const s = A.a, h = [H[0] - E[0], H[1] - E[1]], hl = Math.hypot(h[0], h[1]) || 1, u = [h[0] / hl, h[1] / hl];
+  const Wr = [H[0] - u[0] * 20, H[1] - u[1] * 20], C = [E[0] + h[0] * s.tc, E[1] + h[1] * s.tc];
+  const [wS, wE, wC] = s.w.map(v => v * .72), a1 = Math.atan2(E[0] - S[0], E[1] - S[1]), a2 = Math.atan2(C[0] - E[0], C[1] - E[1]), n1 = nrm(a1), n2 = nrm(a2);
+  let nk = [n1[0] + n2[0], n1[1] + n2[1]]; const nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk = [nk[0] / nl / cs, nk[1] / nl / cs];
   const P = (c, n, w, k) => `${f(c[0] + n[0] * w / 2 * k)} ${f(c[1] + n[1] * w / 2 * k)}`;
   const sd = `M${P(S, n1, wS - 5, -1)}L${P(E, nk, wE - 5, -1)}L${P(C, n2, wC - 5, -1)}L${P(C, n2, wC - 5, 1)}L${P(E, nk, wE - 5, 1)}L${P(S, n1, wS - 5, 1)}Z`; A.sl.setAttribute('d', sd); A.slo.setAttribute('d', sd);
-  A.cap.setAttribute('cx', f(S[0])); A.cap.setAttribute('r', f(wS / 2 - 1)); A.capo.setAttribute('r', f(wS / 2 + 1.5)); A.capo.setAttribute('cx', f(S[0])); A.capo.setAttribute('cy', f(S[1] + 3)); A.cap.setAttribute('cy', f(S[1] + 3)); A.eb.setAttribute('cx', f(E[0])); A.eb.setAttribute('cy', f(E[1])); A.eb.setAttribute('r', f(wE / 2 - 1));
+  A.cap.setAttribute('cx', f(S[0])); A.cap.setAttribute('cy', f(S[1] + 3)); A.cap.setAttribute('r', f(wS / 2 - 1)); A.capo.setAttribute('cx', f(S[0])); A.capo.setAttribute('cy', f(S[1] + 3)); A.capo.setAttribute('r', f(wS / 2 + 1.5));
+  A.eb.setAttribute('cx', f(E[0])); A.eb.setAttribute('cy', f(E[1])); A.eb.setAttribute('r', f(wE / 2 - 1));
   const cb = [C[0] - Math.sin(a2) * 8, C[1] - Math.cos(a2) * 8]; A.cuff.setAttribute('d', `M${P(cb, n2, wC + 2, -1)}L${P(C, n2, wC + 2, -1)}L${P(C, n2, wC + 2, 1)}L${P(cb, n2, wC + 2, 1)}Z`);
-  const inn = s.side === 'L' ? 1 : -1; A.fold.setAttribute('d', `M${P(E, nk, wE, inn * .35)}q${f(-inn * 3)} 9 ${f(inn * 2)} 20`);
+  A.fold.setAttribute('d', `M${P(E, nk, wE, .3)}q${f(-3)} 9 ${f(2)} 20`);
   const sw = (s.skinw || 20) * .85; A.fore.setAttribute('d', `M${P(C, n2, sw, -1)}L${P(Wr, n2, sw * .9, -1)}L${P(Wr, n2, sw * .9, 1)}L${P(C, n2, sw, 1)}Z`);
-  const th = Math.atan2(-u[0], u[1]) / RAD, mir = s.side === 'L' ? 1 : -1, sc = 1.12;
-  A.hand.setAttribute('transform', `translate(${f(Wr[0])} ${f(Wr[1])}) rotate(${f(th)}) scale(${mir * sc} ${sc})`);
+  const th = Math.atan2(-u[0], u[1]) / RAD, sc = 1.85;
+  A.hand.setAttribute('transform', `translate(${f(Wr[0])} ${f(Wr[1])}) rotate(${f(th)}) scale(${mir * sc} ${sc * .8})`);
   const fist = holding ? '' : 'none', open = holding ? 'none' : '';
   A.hr.setAttribute('display', open); A.hrl.setAttribute('display', open); A.hf.setAttribute('display', fist); A.hfl.setAttribute('display', fist);
 }
+function ik2(L1, L2, tx, ty) {
+  const dd = Math.min(Math.max(Math.hypot(tx, ty), Math.abs(L1 - L2) + .5), L1 + L2 - .5), a = Math.acos(cl((L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd), -1, 1)), th = Math.atan2(tx, ty) + a;
+  return [L1 * Math.sin(th), L1 * Math.cos(th), th];
+}
+function footTraj(cc, S, lift) {
+  cc = ((cc % 1) + 1) % 1;
+  if (cc < .6) { const s = cc / .6; return { u: lerp(S, -S, s), v: 0, a: lerp(-8, 24, s * s) }; }
+  const s = (cc - .6) / .4, e = s * s * (3 - 2 * s); return { u: lerp(-S, S, e), v: Math.sin(Math.PI * s) * lift, a: lerp(28, -14, e) };
+}
+const carryLimb = g => g.carry == null ? -1 : (g.sgn > 0 ? 1 : 0);
+function shiftXAt(g, t) { let s = 0; (g.shift || []).forEach(q => { s += 7 * sm((t - q) / .5) * (1 - sm((t - q - .9) / .6)); }); return s; }
+// pure pose of the whole body in cut coordinates (so hands can be queried without drawing)
+function rigPose(g, t) {
+  const n = g.ch, d = CHARS[n], rs = rigSpec(d, n), R = rs.R, st = pState(g, t), k = K * g.sz, dF = st.dirF, ex = expAt(g, t);
+  const amp = cl(st.amp, 0, 1.2), aw = cl(amp * 1.7, 0, 1), cyc = st.ph / (2 * Math.PI), shiftX = shiftXAt(g, t);
+  const psiT = (90 - 35 * dF + 5 * Math.sin(2 * Math.PI * cyc) * aw) * RAD, psiL = lerp(90 - 35 * dF, 90 - 90 * dF, aw) * RAD;
+  const cT = Math.cos(psiT), sT = Math.sin(psiT), cL = Math.cos(psiL), sL = Math.max(Math.sin(psiL), .2);
+  const cycCut = 2 * Math.PI * STRIDE / k, S = Math.min(.21 * cycCut, .2 * rs.Ltot), Lh = rs.Ltot / 2;
+  const hf = lerp(.985, .962 + .02 * Math.cos(4 * Math.PI * (cyc - .3)), aw), hipY = rs.ground - AH - rs.Ltot * hf, dy = hipY - rs.hip0;
+  const lean = (2 + aw * 4 + ex.dip * .15) * RAD, tl = Math.tan(lean), cx = rs.xm + shiftX + Math.sin(2 * Math.PI * cyc) * 2.5 * aw;
+  const off = y => (rs.hip0 - y) * tl * cT;     // forward lean shear, y in rest coordinates
+  const legs = [], arms = [], th = [];
+  for (let i = 0; i < 2; i++) {
+    const w = i ? 1 : -1, tr = footTraj(cyc + (i ? 0 : .5), S, 28), uI = i ? 9 : -9;
+    const u = lerp(uI, tr.u, aw), v = lerp(0, tr.v, aw), a = lerp(0, tr.a, aw), hx = cx - w * (rs.hipW / 4) * sL;
+    const kn = ik2(Lh, Lh, u, rs.ground - AH - v - hipY);
+    legs.push({ H: [hx, hipY], K: [hx + kn[0] * cL, hipY + kn[1]], A: [hx + u * cL, rs.ground - AH - v], fa: a }); th.push(kn[2] / RAD);
+  }
+  const ci = carryLimb(g), ci_it = g.carry != null ? ITEMS[g.carry] : null, rel = ci_it && ci_it.tr ? sm((t - ci_it.tr) / .45) : 0;
+  for (let i = 0; i < 2; i++) {
+    const w = i ? 1 : -1, WfS = lerp(rs.Wsh * 1.1, rs.hipW * 1.04, cl((rs.shJ - rs.shY) / (rs.hem - rs.shY), 0, 1)), hw = Math.max(rs.Wsh / 2 - 4, .5 * Math.hypot(WfS * sT, WfS * .62 * cT) + 1) / Math.max(sT, .3), Sx = cx + off(rs.shJ) - w * hw * sT, Sy = rs.shJ + dy;
+    const sw0 = 6 - 1.0 * th[i] * aw + Math.sin(t * 1.3 + i) * 1.2, freeT = cl(sw0, -10, 26), free = [freeT, 12];
+    let t1 = freeT, bd = free[1], holding = false;
+    if (i === ci) { const sw = 2 * Math.sin(4 * Math.PI * cyc) * aw; t1 = lerp(R.hold[0] + sw, freeT, rel); bd = lerp(R.hold[1], free[1], rel); holding = rel < .5; }
+    const t2 = t1 + bd; const cA = lerp(cT, cL, aw), E = [Sx + rs.L1a * Math.sin(t1 * RAD) * cA - w * 4 * sT, Sy + rs.L1a * Math.cos(t1 * RAD)];
+    const Wp = [E[0] + rs.L2a * Math.sin(t2 * RAD) * cA, E[1] + rs.L2a * Math.cos(t2 * RAD)], H = [Wp[0] + 21 * Math.sin(t2 * RAD) * cA, Wp[1] + 21 * Math.cos(t2 * RAD)];
+    arms.push({ S: [Sx, Sy], E, H, holding });
+  }
+  const N = [cx + off(d.neck) + cT * rs.Wsh * rs.ns, d.neck + dy];
+  return { d, n, rs, R, st, k, ex, aw, psiT, psiL, cT, sT, cL, sL, cx, dy, off, hipY, legs, arms, N, shiftX, ci };
+}
+function handAt(g, t) {
+  const P = rigPose(g, t), H = P.arms[P.ci >= 0 ? P.ci : 1].H;
+  return [P.st.x + P.k * (H[0] - P.rs.xm), GY + P.k * (H[1] - P.d.h)];
+}
+function torsoSVG(P) {
+  const { d, rs, R, cx, dy, off, psiT, cT, sT, psiL } = P, main = d.sleeve, sk = d.skin;
+  const Wf = y => lerp(rs.Wsh * 1.1, rs.hipW * 1.04, cl((y - rs.shY) / (rs.hem - rs.shY), 0, 1)), hw = y => .5 * Math.hypot(Wf(y) * sT, Wf(y) * .62 * cT);
+  const ctr = y => cx + off(y), Lx = y => ctr(y) - hw(y), Rx = y => ctr(y) + hw(y), Y = y => y + dy, fl = y => cl(ctr(y) + cT * Wf(y) * .26, Lx(y) + 9, Rx(y) - 9);
+  const y0 = rs.shY, y1 = rs.hem, ym = (y0 + y1) / 2;
+  let s = '', back = '';
+  const body = `M${f(Lx(y0 + 20))} ${f(Y(y0 + 20))}Q${f(Lx(y0 + 4))} ${f(Y(y0 + 2))} ${f(Lx(y0) + 18)} ${f(Y(y0))}L${f(Rx(y0) - 18)} ${f(Y(y0))}Q${f(Rx(y0 + 4))} ${f(Y(y0 + 2))} ${f(Rx(y0 + 20))} ${f(Y(y0 + 20))}L${f(Rx(ym))} ${f(Y(ym))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}L${f(Lx(ym))} ${f(Y(ym))}Z`;
+  // neck
+  if (!d.noneck) s += `<rect x="${f(ctr(d.neck) + cT * rs.Wsh * rs.ns - rs.nw / 2)}" y="${f(Y(d.neck - 4))}" width="${rs.nw}" height="${f(rs.shY - d.neck + 18)}" rx="8" fill="${sk}"/>`;
+  s += `<path d="${body}" fill="${main}" stroke="${main}" stroke-width="3" stroke-linejoin="round"/>`;
+  const dk = shade(main, .78), mid = shade(main, .9);
+  if (R.ty === 'jacket') {
+    const sw = Math.max(5, rs.Wsh * R.iw * .5 * sT), a = fl(y0 + 30), top = [a - sw * 1.5, a + sw * 1.5];
+    s += `<path d="M${f(top[0])} ${f(Y(y0 + 2))}L${f(top[1])} ${f(Y(y0 + 2))}L${f(a + sw)} ${f(Y(y1))}L${f(a - sw)} ${f(Y(y1))}Z" fill="${R.inner}"/>`;
+    s += `<path d="M${f(top[0])} ${f(Y(y0 + 2))}L${f(a - sw)} ${f(Y(y1))}M${f(top[1])} ${f(Y(y0 + 2))}L${f(a + sw)} ${f(Y(y1))}" stroke="${dk}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${f(top[0])} ${f(Y(y0))}L${f(top[0] - 14)} ${f(Y(y0 + 8))}L${f(top[0] - 2)} ${f(Y(y0 + 26))}ZM${f(top[1])} ${f(Y(y0))}L${f(top[1] + 14)} ${f(Y(y0 + 8))}L${f(top[1] + 2)} ${f(Y(y0 + 26))}Z" fill="${mid}" stroke="${dk}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    s += `<path d="M${f(Lx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".55"/>`;
+  } else if (R.ty === 'sweater') {
+    s += R.collar ? `<path d="M${f(fl(y0) - 17)} ${f(Y(y0 - 1))}L${f(fl(y0) + 17)} ${f(Y(y0 - 1))}L${f(fl(y0))} ${f(Y(y0 + 24))}Z" fill="${R.collar}" stroke="${shade(R.collar, .8)}" stroke-width="1.6" stroke-linejoin="round"/>` :
+      `<ellipse cx="${f(fl(y0))}" cy="${f(Y(y0 + 3))}" rx="${f(8 + 9 * sT)}" ry="11" fill="${sk}"/><path d="M${f(fl(y0) - 8 - 9 * sT)} ${f(Y(y0 + 3))}Q${f(fl(y0))} ${f(Y(y0 + 20))} ${f(fl(y0) + 8 + 9 * sT)} ${f(Y(y0 + 3))}" stroke="${dk}" stroke-width="3" fill="none"/>`;
+    s += `<path d="M${f(Lx(y1 - 12))} ${f(Y(y1 - 12))}L${f(Rx(y1 - 12))} ${f(Y(y1 - 12))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".5"/>`;
+    s += `<path d="M${f(Lx(ym) + 10)} ${f(Y(ym - 30))}q-3 22 3 44M${f(Rx(ym) - 12)} ${f(Y(ym - 26))}q3 20 -2 40" stroke="${mid}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  } else if (R.ty === 'shirt') {
+    const a = fl(y0 + 30);
+    s += `<path d="M${f(a)} ${f(Y(y0 + 6))}L${f(a)} ${f(Y(y1))}" stroke="${dk}" stroke-width="2.2"/>`;
+    for (let q = 0; q < 4; q++) s += `<circle cx="${f(a + 5)}" cy="${f(Y(y0 + 52 + q * 50))}" r="2.6" fill="${dk}"/>`;
+    s += `<path d="M${f(a)} ${f(Y(y0 + 24))}L${f(a - 20)} ${f(Y(y0 - 1))}L${f(a - 4)} ${f(Y(y0 - 1))}ZM${f(a)} ${f(Y(y0 + 24))}L${f(a + 20)} ${f(Y(y0 - 1))}L${f(a + 4)} ${f(Y(y0 - 1))}Z" fill="${mid}" stroke="${dk}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    const sx = cl(ctr(y0 + 20) - cT * Wf(y0) * .2 + hw(y0) * .5, Lx(y0 + 20) + 10, Rx(y0 + 20) - 10);
+    s += `<path d="M${f(sx)} ${f(Y(y0 + 2))}Q${f(sx - 4)} ${f(Y(y0 + 70))} ${f(sx - 6)} ${f(Y(y0 + 126))}" stroke="${R.pack}" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+    const bw = 40 + 8 * sT, bx = ctr(y0 + 70) - Math.sign(cT || 1) * Math.min(1, Math.abs(cT) * 1.8) * (hw(y0 + 70) + 2);
+    back += `<rect x="${f(bx - bw / 2)}" y="${f(Y(y0 + 14))}" width="${f(bw)}" height="150" rx="14" fill="${R.pack}" stroke="${shade(R.pack, .75)}" stroke-width="2"/><rect x="${f(bx - bw / 2 + 4)}" y="${f(Y(y0 + 100))}" width="${f(bw - 8)}" height="54" rx="9" fill="${shade(R.pack, .86)}"/>`;
+  } else if (R.ty === 'hoodie') {
+    const a = fl(y0 + 30), pw = Wf(ym) * .56;
+    s += `<path d="M${f(a - 15)} ${f(Y(y0 - 1))}L${f(a + 15)} ${f(Y(y0 - 1))}L${f(a)} ${f(Y(y0 + 20))}Z" fill="${R.inner}"/>`;
+    s += `<path d="M${f(a - 7)} ${f(Y(y0 + 14))}L${f(a - 9)} ${f(Y(y0 + 70))}M${f(a + 7)} ${f(Y(y0 + 14))}L${f(a + 9)} ${f(Y(y0 + 66))}" stroke="#bda98f" stroke-width="2.4" stroke-linecap="round"/>`;
+    s += `<path d="M${f(a - pw / 2)} ${f(Y(y1 - 66))}L${f(a + pw / 2)} ${f(Y(y1 - 66))}L${f(a + pw / 2 + 6)} ${f(Y(y1 - 14))}L${f(a - pw / 2 - 6)} ${f(Y(y1 - 14))}Z" fill="${mid}" stroke="${dk}" stroke-width="2" stroke-linejoin="round"/>`;
+    s += `<path d="M${f(Lx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".5"/>`;
+    back += `<ellipse cx="${f(ctr(d.neck + 10) - cT * 9)}" cy="${f(Y(d.neck + 14))}" rx="${f(34 + 14 * sT)}" ry="30" fill="${dk}"/>`;
+  }
+  const hs = hw(rs.hem) - 3;
+  return { s, back, pelvis: [cx + off(rs.hem) - hs, Y(rs.hem - 24), hs * 2, P.hipY + 14 - Y(rs.hem - 24)] };
+}
+
+CHARS.s4c.hflip = -1; CHARS.s3.hflip = -1; CHARS.s3.hdn = 16; CHARS.s3.hbk = 9; CHARS.s3.noneck = true; CHARS.s4a.hbk = -7;
 function buildChars() {
   for (const n in CHARS) {
     const d = CHARS[n], g = mk('g', { display: 'none' }, wPeople), o = { d, g };
     const img = (p, par) => mk('image', { href: p.src, x: p.x, y: p.y, width: p.w, height: p.h }, par);
     o.shadow = mk('ellipse', { cx: d.xm, cy: d.h - 2, rx: (d.xr - d.xl) * .62, ry: 13, fill: '#000', opacity: .11 }, g);
-    o.legs = [mkLeg(d, 'L', g), mkLeg(d, 'R', g)];
-    { const V = d.vec.legs; mk('rect', { x: V.L.t[0] + 2, y: V.top - 14, width: V.R.t[1] - V.L.t[0] - 4, height: 66, rx: 12, fill: V.pants }, g); }
-    o.body = mk('g', {}, g); img(d.parts.body, o.body);
-    o.arms = d.vec.arms.map((a, i) => mkArm(d, a, o.body));
-    o.handTop = mk('g', { display: 'none' }, wHandTop); o.handTop.appendChild(o.arms.find(A => A.a.carry).hand);
-    o.head = mk('g', {}, o.body); img(d.parts.head, o.head);
+    o.lgF = mk('g', { style: 'filter:brightness(.88)' }, g); o.lgN = mk('g', {}, g); o.back = mk('g', {}, g);
+    o.agF = mk('g', { style: 'filter:brightness(.9)' }, g); o.mid = mk('g', {}, g); o.agN = mk('g', {}, g);
+    o.legs = [mkLeg(d, n, mk('g', {}, o.lgN)), mkLeg(d, n, mk('g', {}, o.lgN))];
+    o.pelvis = mk('rect', { rx: 6, fill: d.vec.legs.pants }, o.mid); o.torso = mk('g', {}, o.mid);
+    o.arms = d.vec.arms.map(a => mkArm(d, a, mk('g', {}, o.agN)));
+    o.handTop = mk('g', { display: 'none' }, wHandTop); o.ci = -2; o.nearI = -1;
+    o.head = mk('g', {}, g); img(d.parts.head, o.head);
     const fc = mk('g', {}, o.head), sk = d.skin, mc = '#9c5a49';
     o.p = []; o.eye = []; o.brow = [];
     for (let s = 0; s < 2; s++) {
@@ -230,7 +338,7 @@ function buildChars() {
     it.eH = mk('image', { href: d.src, width: d.w, height: d.h, display: 'none' }, wHeldImg);
     it.eC = mk('image', { href: d.src, width: d.w, height: d.h, display: 'none' }, cImg);
     it.d = d; it.bx = d.w / 2; it.by = d.h;           // origin = bottom-centre of the item artwork
-    it.hand = CHARS[it.img].hand; it.gx = it.hand[0] - (d.x + d.w / 2); it.gy = it.hand[1] - (d.y + d.h);
+    it.hand = CHARS[it.img].hand; { const GR = { s1: [0, -108], s2: [0, -30], s3: [0, -70], s5: [0, -14] }[it.img]; it.gx = GR[0]; it.gy = GR[1]; }
   }
 }
 
@@ -249,35 +357,31 @@ function fallState(kind, s, ul) {   // s: 0..1 flight progress; ul: seconds sinc
 
 // ---------------- persons ----------------
 function pState(g, t) {
-  const x = xAt(g, t), v = pv(g.vk, t), dir = dirAt(g, t), amp = cl(v / 290, 0, 1.15);
-  const ph = x * g.sgn / STRIDE; return { x, v, dir, amp, ph };
-}
-function handScreen(g, t, st) {
-  const d = CHARS[g.ch], k = K * g.sz, hl = d.hand;
-  const bob = Math.abs(Math.sin(st.ph)) * 7 * st.amp;
-  return [st.x + st.dir * k * (hl[0] - d.xm), GY - bob + k * (hl[1] - d.h)];
+  const x = xAt(g, t), v = pv(g.vk, t), dirF = dirAt(g, t), amp = cl(v / 290, 0, 1.15);
+  const ph = x * g.sgn / STRIDE; return { x, v, dir: dirF >= 0 ? 1 : -1, dirF, amp, ph };
 }
 function drawPerson(g, t, tw) {
-  const o = C[g.ch], d = o.d, st = pState(g, t), k = K * g.sz, ex = expAt(g, t);
-  const toward = Math.sign(X0 - st.x) || 1, bob = Math.abs(Math.sin(st.ph)) * 7 * st.amp;
-  const swing = Math.sin(st.ph) * 13 * st.amp, idle = Math.sin(t * 1.7 + d.h) * 1.8 * (1 - st.amp);
-  let shiftX = 0; (g.shift || []).forEach(s => { shiftX += 7 * sm((t - s) / .5) * (1 - sm((t - s - .9) / .6)); });
-  const lean = Math.sin(st.ph) * 1.5 * st.amp + st.amp * 1.2 + ex.dip * .12;
-  o.g.setAttribute('display', '');
-  o.g.setAttribute('transform', `translate(${f(st.x)} ${f(GY - bob)}) scale(${f(st.dir * k)} ${f(k)}) translate(${-d.xm} ${-d.h})`);
-  const sg = Math.sin(st.ph), lift = Math.max(0, sg) * 6 * st.amp, lift2 = Math.max(0, -sg) * 6 * st.amp, sx = shiftX * .2;
-  poseLeg(o.legs[0], d, swing * .5 + sx, lift * 2.2, -(swing * .5 + sx + lift * 1.1) * .8, lift * .5);
-  poseLeg(o.legs[1], d, -swing * .5 - sx, lift2 * 2.2, (swing * .5 + sx - lift2 * 1.1) * .8, lift2 * .5);
-  const carryIt = g.carry != null ? ITEMS[g.carry] : null, holding = carryIt && (!carryIt.tr || t < carryIt.tr), slipD = g.slip && g.carry != null ? sm((t - g.slip[0]) / (g.slip[1] - g.slip[0])) : 0;
-  o.arms.forEach((A, i) => { const cr = A.a.carry; const free = (i === 0 ? 1 : -1) * sg * 8 * st.amp * (A.a.side === 'L' ? 1 : -1) * -1 + Math.sin(t * 1.3 + i) * 1.2;
-    poseArm(A, d, cr && holding ? sg * 1.2 * st.amp : (cr ? 4 * sm((t - (carryIt ? carryIt.tr || 0 : -9)) / .4) : free), cr && holding ? -slipD * 6 : 0, cr && holding); });
-  o.body.setAttribute('transform', `translate(${f(shiftX + idle)} 0) rotate(${f(lean * st.dir * 0 + (lean - 1.2 * st.amp) * 0 + (Math.sin(st.ph) * 1.6 * st.amp + shiftX * .35))} ${d.xm} ${d.hem})`);
-  // head + face
-  const hx = (d.eyes[0][0] + d.eyes[1][0]) / 2, ty = tw.tilt * toward * st.dir;      // visual direction -> local
-  o.head.setAttribute('transform', `translate(${f(ex.tilt * .25 * toward * st.dir)} ${f(ex.dip)}) rotate(${f(ex.tilt * toward * st.dir - Math.sin(st.ph) * 1.2 * st.amp)} ${hx} ${d.neck})`);
+  const P = rigPose(g, t), o = C[g.ch], d = P.d, rs = P.rs, st = P.st, k = P.k, ex = expAt(g, t), m = P.cT >= 0 ? 1 : -1;
+  const toward = Math.sign(X0 - st.x) || 1;
+  const tf = `translate(${f(st.x)} ${f(GY)}) scale(${f(k)} ${f(k)}) translate(${-rs.xm} ${-d.h})`;
+  o.g.setAttribute('display', ''); o.g.setAttribute('transform', tf);
+  // depth order: the limbs on the viewer's side go in front of the torso
+  const nearI = P.cT >= 0 ? 1 : 0, farI = 1 - nearI;
+  if (o.nearI !== nearI) { o.nearI = nearI; o.lgF.appendChild(o.legs[farI].g); o.lgN.appendChild(o.legs[nearI].g); o.agF.appendChild(o.arms[farI].g); o.agN.appendChild(o.arms[nearI].g); }
+  const mx = P.cL >= 0 ? 1 : -1, sq = Math.max(Math.abs(P.cL), .55);
+  P.legs.forEach((L, i) => poseLeg(o.legs[i], d, rs, L.H, L.K, L.A, L.fa, mx, sq));
+  // the carrying hand lives on a top layer so the fingers sit in front of the item
+  if (o.ci !== P.ci) { if (o.ci >= 0) { const pa = o.arms[o.ci]; pa.g.insertBefore(pa.hand, pa.slo); } if (P.ci >= 0) { o.handTop.appendChild(o.arms[P.ci].hand); } o.ci = P.ci; }
+  P.arms.forEach((a, i) => poseArm(o.arms[i], a.S, a.E, a.H, a.holding, m));
+  const ts = torsoSVG(P); o.torso.innerHTML = ts.s; o.back.innerHTML = ts.back;
+  o.pelvis.setAttribute('x', f(ts.pelvis[0])); o.pelvis.setAttribute('y', f(ts.pelvis[1])); o.pelvis.setAttribute('width', f(ts.pelvis[2])); o.pelvis.setAttribute('height', f(ts.pelvis[3]));
+  o.handTop.setAttribute('display', P.ci >= 0 ? '' : 'none'); o.handTop.setAttribute('transform', tf);
+  // head + face (raster head, turned with the torso; flips only while the body is edge-on)
+  const mh = m * (d.hflip || 1), sqx = .86 + .14 * P.sT, hcx = rs.hcx, tilt = ex.tilt * toward * mh - Math.sin(st.ph) * 1.2 * st.amp;
+  o.head.setAttribute('transform', `translate(${f(P.N[0] - hcx + ex.tilt * .25 * toward * m - m * (d.hbk || 0))} ${f(P.dy + ex.dip + (d.hdn || 0))}) rotate(${f(tilt)} ${f(hcx)} ${d.neck}) translate(${f(hcx)} ${d.neck}) scale(${f(mh * sqx)} 1) translate(${f(-hcx)} ${-d.neck})`);
   const blinkP = ((t + d.h * .013) % 3.9), bl = blinkP < .16 ? Math.sin(Math.PI * blinkP / .16) : 0, lid = cl(ex.lid + bl * (1 - ex.lid), -.25, .95);
   for (let s = 0; s < 2; s++) {
-    const [px, py] = d.eyes[s], lx = ex.lP * toward * st.dir * 2.8, ly = ex.lD * 3;
+    const [px, py] = d.eyes[s], lx = ex.lP * toward * mh * 2.8, ly = ex.lD * 3;
     o.eye[s].setAttribute('cx', f(px + lx)); o.eye[s].setAttribute('cy', f(py + ly + lid * 1.2)); o.eye[s].setAttribute('ry', f(5.6 * (1 - lid) + .6));
     o.eye[s].setAttribute('rx', f(4.4 + (lid < 0 ? -lid * 2 : 0)));
     const [bx, by] = d.brows[s], bw = d.brows[2], inner = s === 0 ? 1 : -1, ey = d.glasses ? -12 : 0;
@@ -285,12 +389,11 @@ function drawPerson(g, t, tw) {
     const xo = bx - bw * .6 * inner, xi = bx + bw * .6 * inner, yy = by + ey - up;
     o.brow[s].setAttribute('d', `M${f(xo)} ${f(yy + tl * .35 + (lid > .3 ? 1.2 : 0))} L${f(xi)} ${f(yy - tl)}`);
   }
-  const [mx, my] = d.mouth, mc = ex.mouth * 5.5;
-  o.mouth.setAttribute('d', `M${mx - 8} ${f(my - Math.max(0, mc) * .2)} Q${mx} ${f(my + mc + 1.5)} ${mx + 8} ${f(my - Math.max(0, mc) * .2 - (ex.bT > 4 ? 1.2 : 0))}`);
-  o.handTop.setAttribute('display', ''); o.handTop.setAttribute('transform', o.g.getAttribute('transform') + ' ' + o.body.getAttribute('transform'));
-  // shadow stays on the ground
-  o.shadow.setAttribute('cy', d.h - 2 + bob / k);
-  return { st, k, bob, shiftX, idle };
+  const [mx2, my] = d.mouth, mc = ex.mouth * 5.5;
+  o.mouth.setAttribute('d', `M${mx2 - 8} ${f(my - Math.max(0, mc) * .2)} Q${mx2} ${f(my + mc + 1.5)} ${mx2 + 8} ${f(my - Math.max(0, mc) * .2 - (ex.bT > 4 ? 1.2 : 0))}`);
+  o.shadow.setAttribute('cx', f(P.cx)); o.shadow.setAttribute('cy', d.h - 2);
+  st.dir = m;
+  return { st, k, bob: 0, shiftX: P.shiftX, idle: 0 };
 }
 
 // ---------------- items in wide ----------------
@@ -326,7 +429,7 @@ function drawWide(t) {
     if (gi === undefined) return;
     const g = act[gi], inf = info[gi], d = CHARS[g.ch];
     if (it.wide && t >= it.tr) { // released in wide: fall from hand to pile
-      const stR = pState(g, it.tr), [hx, hy] = handScreen(g, it.tr, stR), s = cl((t - it.tr) / FALLT[kind]), fs = fallState(kind, s, -1);
+      const stR = pState(g, it.tr), [hx, hy] = handAt(g, it.tr), s = cl((t - it.tr) / FALLT[kind]), fs = fallState(kind, s, -1);
       const gr = it.img ? [it.gx, it.gy] : GRAB[it.type]; const sx0 = hx - gr[0] * sc * .0, y0 = hy - gr[1] * sc; // bottom-centre start under the hand
       const X = lerp(hx, rx, sm(s)) + fs.x, Y = lerp(y0, ry, fs.y), R = lerp(0, it.rot, sm(s)) + fs.r;
       if (it.img) placeImg(it.eH, X, Y, R, sc, it.bx, it.by); else hv += vecStr(it.type, X, Y, R, sc, 1, 1, false);
@@ -334,7 +437,7 @@ function drawWide(t) {
     }
     if (it.tr && t >= it.close?.a) return;   // after cut handled in close-up
     // in the hand (pendulum)
-    const [hx, hy] = handScreen(g, t, inf.st), pend = Math.sin(inf.st.ph + .9) * 7 * inf.st.amp + inf.shiftX * .4 + Math.sin(t * 2.3) * .6;
+    const [hx, hy] = handAt(g, t), pend = Math.sin(inf.st.ph + .9) * 7 * inf.st.amp + inf.shiftX * .4 + Math.sin(t * 2.3) * .6;
     let slip = 0; if (g.slip && g.carry === i) slip = g.slip[2] * sm((t - g.slip[0]) / (g.slip[1] - g.slip[0])) * K * g.sz;
     if (it.img) { const gx = it.gx * sc * inf.st.dir, gy = it.gy * sc, r = pend * inf.st.dir * -1, c = Math.cos(r * Math.PI / 180), s_ = Math.sin(r * Math.PI / 180);
       placeImg(it.eH, hx - (gx * c - gy * s_), hy + slip - (gx * s_ + gy * c), r, sc * 1, it.bx, it.by, inf.st.dir < 0 ? -1 : 1, 1); }
