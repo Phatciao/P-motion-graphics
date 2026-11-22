@@ -557,7 +557,7 @@ function frameAt(T) {
   const t = mapT(T), C0 = CLOSES.find(c => t >= c.a && t < c.b && !(T >= RW0 && t < 12.45));
   if (C0) drawClose(t, C0); else drawWide(t);
   const z = T < 66 ? 1 : T < RW0 ? 1 + .3 * sm((T - 66) / 11) : 1 + .3 * (1 - sm((T - RW0) / 1.1));
-  if (gWide.getAttribute('display') !== 'none') gWide.setAttribute('transform', z === 1 ? '' : `translate(960 ${f(850 - 230 * (z - 1) / .3)}) scale(${f(z)}) translate(-935 -850)`); else gWide.removeAttribute('transform');
+  if (gWide.getAttribute('display') !== 'none') gWide.setAttribute('transform', z === 1 ? '' : `translate(960 ${(850 - 230 * (z - 1) / .3).toFixed(3)}) scale(${z.toFixed(5)}) translate(-935 -850)`); else gWide.removeAttribute('transform');
   gVig.setAttribute('display', gWide.getAttribute('display') === 'none' ? 'none' : '');
   rewindFX(T, t);
 }
