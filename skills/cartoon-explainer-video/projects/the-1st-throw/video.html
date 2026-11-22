@@ -120,7 +120,7 @@ function expAt(g, t) {
 const gWide = mk('g', {}, S), gClose = mk('g', { display: 'none' }, S), gEnd = mk('g', { display: 'none' }, S);
 const ASC = .85;
 const wBG = mk('g', {}, gWide), gAct = mk('g', { transform: `translate(${960 * (1 - ASC)} ${960 * (1 - ASC)}) scale(${ASC})` }, gWide), wPileVec = mk('g', {}, gAct), wPileImg = mk('g', {}, gAct), wPeople = mk('g', {}, gAct), wHeldImg = mk('g', {}, gAct), wHeldVec = mk('g', {}, gAct);
-const wHandTop = mk('g', {}, gWide);
+const wHandTop = mk('g', {}, gAct);
 const cBG = mk('g', {}, gClose), cPileVec = mk('g', {}, gClose), cImg = mk('g', {}, gClose), cFG = mk('g', {}, gClose);
 const HAIR = { s1: '#2a2523', s2: '#4a3028', s3: '#2a2f33', s4a: '#8c8c8c', s4b: '#2c2c35', s4c: '#2a2523', s5: '#2c2e38' };
 const C = {};
