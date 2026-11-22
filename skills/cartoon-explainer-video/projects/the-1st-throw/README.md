@@ -50,3 +50,10 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - S5: both legs are the same white (no far-leg darkening for her).
 - Rewind (T 77 to ~85): one continuous reverse of the whole film (`RWR` speed table, ramp in/out); everyone walks backwards, close-ups return items to hands, VHS overlay (REW, timecode counting down, blur by speed), tape whirr and stop click; holds P1 before the release, then black end card at 87.
 - Set: tall street lamp bent over the pile, soft light cone, pool of light and a vignette (`wLight`).
+
+## v2.5 (60 fps)
+- Characters and pile drawn at 85% (`ASC`) so the tall lamp reads larger; floor/vignette extended so the camera push never shows an edge.
+- Slow camera push-in on the pile from T 66 to 77, eased back out as the rewind starts (silence before the rewind is filled).
+- Close-up sleeves slimmed (stroke 132) to match the hand and item scale.
+- Soft score: warm pad (Am F C G), low pedal + sparse bells during the held pile, tape whirr in the rewind, resolving chord on the end card.
+- Rendered at 60 fps (`render_t.mjs ... 60 1 4`).
