@@ -146,9 +146,9 @@ function buildBG() {
 <radialGradient id="vg" cx=".5" cy=".58" r=".75"><stop offset=".45" stop-color="#0d1320" stop-opacity="0"/><stop offset="1" stop-color="#0d1320" stop-opacity=".5"/></radialGradient></defs>
 <filter id="lb" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14"/></filter><path d="M1006 58L1066 58L1380 950L650 950Z" fill="url(#lc)" filter="url(#lb)"/>
 <ellipse cx="1025" cy="860" rx="400" ry="105" fill="url(#lp)"/>`;  wBG.innerHTML = o;
-  let c = `<rect x="-600" y="-600" width="3120" height="2400" fill="#d3cec3"/>`;
-  for (let i = -3; i < 8; i++) c += `<line x1="${i * 420 + 60}" y1="-600" x2="${i * 420 + 60}" y2="1800" stroke="#bdb7aa" stroke-width="5"/>`;
-  c += `<line x1="-600" y1="330" x2="2520" y2="330" stroke="#bdb7aa" stroke-width="5"/><rect x="-600" y="960" width="3120" height="800" fill="#c2bcaf"/>`;
+  let c = `<rect x="-1200" y="-1400" width="4320" height="4200" fill="#d3cec3"/>`;
+  for (let i = -6; i < 11; i++) c += `<line x1="${i * 420 + 60}" y1="-1400" x2="${i * 420 + 60}" y2="2800" stroke="#bdb7aa" stroke-width="5"/>`;
+  c += `<line x1="-1200" y1="330" x2="3120" y2="330" stroke="#bdb7aa" stroke-width="5"/><rect x="-1200" y="960" width="4320" height="1800" fill="#c2bcaf"/>`;
   cBG.innerHTML = c;
 }
 
@@ -581,7 +581,7 @@ const scrX = x => 960 + (x - 960) * ASC;
 const camTarget = T => { const k = focusAt(T); if (k < 0) return 935; const g = SEGS[k], X = scrX(xAt(g, cl(T, g.a, g.b))); return 880 + cl((X - 880) * .6, -380, 380); };
 const camX = (T, a) => cl((camTarget(T) + camTarget(Math.max(a, T - .35)) + camTarget(Math.max(a, T - .7))) / 3, 150, 1560);
 const CAP = [[4.6, 9.4, ['ONE BAG.']], [9.6, 15.9, ["He doesn't even", 'think about it.']], [21.4, 27.0, ['She hesitates…']], [27.2, 32.4, ['…then does it too.']],
-  [36.8, 47.4, ["Now it's easier."]], [47.4, 62.6, ["Then it's habit."]], [67, 77, ['Who threw first?']], [77.3, 83, ['Go back to', 'the first throw.']]];
+  [36.8, 47.4, ["Now it's easier."]], [47.4, 62.6, ["Then it's habit."]], [67, 77, ["It only takes", "one throw."]], [77.3, 83, ['And the street', 'remembers it.']]];
 const TXT = (txt, x, y, sz, fill, extra = '') => `<text x="${x}" y="${y}" font-size="${sz}" font-weight="900" fill="${fill}" stroke="#101820" stroke-width="${sz * .16}" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" ${extra}>${txt}</text>`;
 function vFrame(u) {
   const { T, a } = edlAt(u);
@@ -594,7 +594,7 @@ function vFrame(u) {
   PW.removeAttribute('display'); gEndP.setAttribute('display', 'none');
   frameAt(T);
   const wide = gWide.getAttribute('display') !== 'none', cx = wide ? camX(T, a) : 960;
-  PW.setAttribute('transform', `translate(${f(540 - cx * SCV)} ${f(-WY * SCV)}) scale(${SCV})`);
+  if (wide) PW.setAttribute('transform', `translate(${f(540 - cx * SCV)} ${f(-WY * SCV)}) scale(${SCV})`); else PW.setAttribute('transform', `translate(${f(540 - 960 * .68)} ${f(960 - 540 * .68)}) scale(.68)`);
   const t = mapT(T), n = ITEMS.filter(it => (it.tr || it.land) <= t).length;
   let last = -9; ITEMS.forEach(it => { const te = it.tr || it.land; if (te <= t && te > last) last = te; });
   const pop = T < RW0 ? Math.exp(-(t - last) * 5) : 0;

@@ -76,3 +76,7 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 ## v3.0 — Bản dọc TikTok (1080x1920, ~60s)
 - `video_vertical.html`: bản dọc của video, camera bám nhân vật, cắt gọn theo EDL (~60s), chữ dẫn truyện, bộ đếm THROWS (tăng khi ném, đếm ngược khi tua), end card dọc (3 dòng + dấu "?" lớn).
 - Render: `the-1st-throw_tiktok_vertical.mp4` (60 fps, h264 + aac).
+
+### v3.1 (bản dọc)
+- Chữ dẫn cuối đổi thành "It only takes one throw." / "And the street remembers it." (nói về hệ quả của lần ném đầu, không đi tìm người ném).
+- Cảnh cận tay thả rác thu rộng khung (scale .68) để không bị cắt mép túi rác/vật thả.
