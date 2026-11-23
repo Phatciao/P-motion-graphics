@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>THE 1ST THROW — vertical (TikTok)</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}svg{display:block;width:100vw;height:100vh}</style></head>
+<body><svg id="s" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif"></svg>
+<script src="assets/chars.js"></script>
+<script>
+// THE 1ST THROW v2 — pure seek(t). Characters = S1..S5 artwork cut into head/body/legs/item, acted with
+// an expression system (eyes, brows, mouth, head tilt), walk/stop/weight-shift, hand+object continuity.
+window.VIDEO = { w: 1080, h: 1920, duration: 60 };
+const NS = 'http://www.w3.org/2000/svg', S = document.getElementById('s');
+const cl = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v)), sm = v => { v = cl(v); return v * v * (3 - 2 * v); };
+const eo = v => 1 - Math.pow(1 - cl(v), 3), ei = v => Math.pow(cl(v), 2.2), lerp = (a, b, k) => a + (b - a) * k, f = n => n.toFixed(1);
+const mk = (tag, at = {}, par) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); if (par) par.appendChild(e); return e; };
+const GY = 960, DEPTH = 60, X0 = 960, SW = 1.35, K = 1.25, M = 2.7, GYC = 880;
+const LSTOP = 740, RSTOP = 1120;
+
+// ---------------- items ----------------
+const COL = { bagBig: '#4b4b4f', bagSmall: '#6d7f8f', cup: '#b79a74', carton: '#bfa070', wrapper: '#d9ad4f', bottle: '#86b8ae' };
+const VH = { bagBig: 100, bagSmall: 70, cup: 56, carton: 50, wrapper: 22, bottle: 22 };
+const GRAB = { bagBig: [0, -100], bagSmall: [0, -70], cup: [0, -50], carton: [0, -48], wrapper: [0, -10], bottle: [3, -22] };
+const KIND = { bagBig: 'heavy', bagSmall: 'heavy', carton: 'medium', bottle: 'medium', cup: 'light', wrapper: 'wrap', img: 'heavy' };
+const bag = (c, k) => `<g transform="scale(${k})"><path d="M-46 0C-58 -40 -40 -78 -10 -80L-14 -90L-4 -86L0 -100L4 -86L14 -90L10 -80C40 -78 58 -40 46 0Z" fill="${c}"/><ellipse cx="-18" cy="-44" rx="9" ry="20" fill="#fff" opacity=".12" transform="rotate(18 -18 -44)"/></g>`;
+function vec(type) {
+  const c = COL[type];
+  if (type === 'bagBig') return bag(c, 1);
+  if (type === 'bagSmall') return bag(c, .7);
+  if (type === 'cup') return `<path d="M-20 0L-26 -52L26 -52L20 0Z" fill="#cdb08a"/><rect x="-29" y="-60" width="58" height="9" rx="3" fill="#4a3228"/>`;
+  if (type === 'carton') return `<rect x="-34" y="-50" width="68" height="50" rx="3" fill="${c}"/><path d="M-34 -50L-24 -60L24 -60L34 -50Z" fill="#a98a5c"/><rect x="-20" y="-34" width="40" height="8" fill="#e8dcc0"/>`;
+  if (type === 'wrapper') return `<path d="M-30 0L-22 -18L-6 -12L8 -22L26 -10L32 0Z" fill="${c}"/>`;
+  if (type === 'bottle') return `<rect x="-37" y="-22" width="60" height="22" rx="10" fill="${c}" opacity=".92"/><rect x="21" y="-17" width="16" height="12" rx="3" fill="${c}"/><rect x="36" y="-18" width="7" height="14" rx="2" fill="#4a6d66"/>`;
+}
+// dx right, dy up (pile units), rot = resting angle. img items reuse the artwork the characters carry.
+const ITEMS = [
+  { img: 's1', dx: -70, dy: 0, rot: 0 },            // 0 first tied bag (Person 1)
+  { img: 's2', dx: 20, dy: 2, rot: -82 },           // 1 cup (Person 2)
+  { img: 's3', dx: -140, dy: 2, rot: 10 },          // 2 paper bag (Person 3)
+  { type: 'carton', dx: 105, dy: 0, rot: -8 },      // 3 old man
+  { type: 'bottle', dx: 150, dy: 0, rot: 4, wide: 1, tr: 48.8 },   // 4 dropped while walking
+  { type: 'bagSmall', dx: -35, dy: 72, rot: -12 },  // 5 hoodie man
+  { type: 'cup', dx: -20, dy: 34, rot: -70, wide: 1, tr: 55.6 },   // 6 dropped while walking
+  { img: 's5', dx: 15, dy: 122, rot: 8 },           // 7 final passer-by
+  // accumulated while nobody is on screen (time jumps)
+  { type: 'bagBig', dx: 168, dy: 0, rot: 6, amb: 49.8 }, { type: 'carton', dx: -195, dy: 0, rot: 14, amb: 49.8 },
+  { type: 'bagSmall', dx: 78, dy: 66, rot: 10, amb: 53.6 }, { type: 'bottle', dx: -88, dy: 52, rot: -6, amb: 53.6 },
+  { type: 'bagBig', dx: 4, dy: 86, rot: -4, amb: 56.4 }, { type: 'wrapper', dx: 222, dy: 0, rot: 0, amb: 56.4 }, { type: 'cup', dx: -232, dy: 0, rot: -75, amb: 56.4 },
+];
+const FALLT = { heavy: .34, medium: .3, light: .42, wrap: .6 };
+const CLOSES = [
+  { a: 12,   b: 15,   idx: 0, ch: 's1', side: 'L', desc: .6, hes: .4,  drift: 0 },
+  { a: 28,   b: 32,   idx: 1, ch: 's2', side: 'R', desc: .6, hes: 1.15, drift: 0 },
+  { a: 39,   b: 43,   idx: 2, ch: 's3', side: 'L', desc: .5, hes: .3,  drift: 0 },
+  { a: 45.6, b: 47.2, idx: 3, ch: 's4a', side: 'L', desc: .35, hes: .22, drift: 0 },
+  { a: 52.6, b: 53.6, idx: 5, ch: 's4c', side: 'L', desc: .3, hes: 0, drift: 140 },
+  { a: 60.2, b: 62.4, idx: 7, ch: 's5', side: 'R', desc: .45, hes: 0, drift: -130 },
+];
+const iKind = it => it.img ? 'heavy' : KIND[it.type];
+const ITEM_KIND = ITEMS.map((it, i) => it.img ? (it.img === 's2' ? 'light' : it.img === 's5' ? 'wrap' : it.img === 's3' ? 'medium' : 'heavy') : KIND[it.type]);
+CLOSES.forEach(c => { const it = ITEMS[c.idx]; it.tr = c.a + c.desc + c.hes; it.close = c; });
+ITEMS.forEach((it, i) => { if (it.wide) it.land = it.tr + FALLT[ITEM_KIND[i]]; else if (it.close) it.land = it.tr + FALLT[ITEM_KIND[i]]; else it.land = it.amb; });
+
+// ---------------- people ----------------
+const STRIDE = 52;
+const pv = (kf, t) => { if (t <= kf[0][0]) return kf[0][1]; for (let i = 1; i < kf.length; i++) if (t <= kf[i][0]) return lerp(kf[i - 1][1], kf[i][1], (t - kf[i - 1][0]) / (kf[i][0] - kf[i - 1][0])); return kf[kf.length - 1][1]; };
+function arrive(Te, xe, Ts, xs, shape, Tdec) {
+  let F = 0; for (let i = 1; i < shape.length; i++) F += (shape[i][0] - shape[i - 1][0]) * (shape[i][1] + shape[i - 1][1]) / 2;
+  const c = Math.abs(xs - xe) / ((Ts - Tdec - Te) + F);
+  return [[Te - 5, c], [Ts - Tdec, c]].concat(shape.slice(1).map(s => [Ts - Tdec + s[0], c * s[1]]));
+}
+const leave = (t0, acc, c) => [[0, 0], [t0, 0], [t0 + acc, c], [200, c]];
+const through = c => [[0, c], [200, c]];
+const SEGS = [
+  { ch: 's1', a: 6, b: 13.4, sgn: 1, tref: 10.7, xref: LSTOP, vk: arrive(6, -310, 10.7, LSTOP, [[0, 1], [.6, .55], [1.1, .2], [1.4, 0]], 1.4), carry: 0,
+    dirK: [[0, 1]], ex: [[6, 'neutral'], [9.3, 'absent'], [11.6, 'shrug']], shift: [11.0], slip: [11.35, 11.95, 14] },
+  { ch: 's1', a: 15, b: 21, sgn: -1, tref: 16.0, xref: LSTOP, vk: leave(16.0, 1.0, 285), carry: null,
+    dirK: [[0, 1], [15.5, -1]], ex: [[15, 'neutral'], [16.2, 'relaxed']] },
+  { ch: 's2', a: 21, b: 28, sgn: -1, tref: 25.2, xref: RSTOP, vk: arrive(21.6, 2150, 25.2, RSTOP, [[0, 1], [.8, .55], [1.3, .12], [1.8, .1], [2.1, .28], [2.5, .1], [2.8, 0]], 2.8), carry: 1,
+    dirK: [[0, -1]], ex: [[21, 'neutral'], [22.6, 'notice'], [23.7, 'hesitant'], [24.7, 'sideeye'], [25.5, 'hesitant'], [26.3, 'down'], [27.3, 'shrug']], shift: [26.1] },
+  { ch: 's2', a: 32, b: 39, sgn: 1, tref: 33.0, xref: RSTOP, vk: leave(33.0, 1.0, 275), carry: null,
+    dirK: [[0, -1], [32.6, 1]], ex: [[32, 'hesitant'], [32.7, 'neutral'], [33.6, 'indiff']] },
+  { ch: 's3', a: 34, b: 39, sgn: 1, tref: 38.4, xref: LSTOP, vk: arrive(34.9, -270, 38.4, LSTOP, [[0, 1], [.5, .7], [1.0, .3], [1.4, 0]], 1.4), carry: 2,
+    dirK: [[0, 1]], ex: [[34, 'neutral'], [37.0, 'shrug'], [38.3, 'normal']] },
+  { ch: 's4a', a: 43, b: 45.6, sgn: 1, tref: 45.1, xref: LSTOP, vk: arrive(43.0, 250, 45.1, LSTOP, [[0, 1], [.5, .45], [1, 0]], 1.0), carry: 3,
+    dirK: [[0, 1]], ex: [[43, 'neutral'], [44.1, 'shrug'], [45.0, 'indiff']] },
+  { ch: 's4b', a: 47.2, b: 49.8, sgn: -1, tref: 48.8, xref: 1150, vk: through(330), carry: 4, vitem: 'bottle',
+    dirK: [[0, -1]], ex: [[47.2, 'neutral'], [47.8, 'aim'], [49.1, 'indiff']] },
+  { ch: 's4c', a: 50.9, b: 52.6, sgn: 1, tref: 52.4, xref: 700, vk: through(310), carry: 5, vitem: 'bagSmall',
+    dirK: [[0, 1]], ex: [[50.9, 'neutral'], [51.4, 'aim']] },
+  { ch: 's4a', a: 54.4, b: 56.4, sgn: -1, tref: 55.6, xref: 930, vk: through(320), carry: 6, vitem: 'cup', sz: .96,
+    dirK: [[0, -1]], ex: [[54.4, 'neutral'], [54.9, 'aim'], [56.0, 'normal']] },
+  { ch: 's5', a: 57, b: 67, sgn: -1, tref: 60.2, xref: 1230, vk: through(265), carry: 7,
+    dirK: [[0, -1]], ex: [[57, 'normal'], [58.7, 'aim'], [62.4, 'normal']] },
+];
+SEGS.forEach(g => { // integrate speed -> x(t) table
+  g.sz = g.sz || 1; g.T = []; const n = Math.ceil((g.b - g.a) / .02) + 1;
+  const I = t => { let s = 0, lo = Math.min(t, g.tref), hi = Math.max(t, g.tref); for (let u = lo; u < hi; u += .02) s += pv(g.vk, u + .01) * .02; return (t >= g.tref ? 1 : -1) * s; };
+  for (let i = 0; i < n; i++) { const t = g.a + i * .02; g.T.push(g.xref + g.sgn * I(t)); }
+});
+const xAt = (g, t) => { const k = cl((t - g.a) / .02, 0, g.T.length - 1.001), i = Math.floor(k); return lerp(g.T[i], g.T[i + 1], k - i); };
+const dirAt = (g, t) => { let d = g.dirK[0][1]; for (let i = 1; i < g.dirK.length; i++) { const k = sm((t - g.dirK[i][0]) / .7); d = lerp(g.dirK[i - 1][1], g.dirK[i][1], k); if (t < g.dirK[i][0] + .7) break; } return d; };
+
+// ---------------- expressions ----------------
+const EXP = {
+  neutral:  { bY: 0, bT: 0, lid: 0, mouth: .05, lP: 0, lD: 0, tilt: 0, dip: 0 },
+  relaxed:  { bY: -1, bT: 0, lid: .12, mouth: .4, lP: 0, lD: 0, tilt: 0, dip: 0 },
+  down:     { bY: -1, bT: 0, lid: .3, mouth: 0, lP: .5, lD: 1, tilt: 3, dip: 12 },
+  down_s:   { bY: 0, bT: 0, lid: .2, mouth: .02, lP: .4, lD: .9, tilt: 2, dip: 7 },
+  notice:   { bY: 7, bT: 0, lid: -.15, mouth: -.05, lP: 1, lD: .3, tilt: 7, dip: 2 },
+  notice_s: { bY: 3, bT: 0, lid: 0, mouth: 0, lP: 1, lD: .2, tilt: 3, dip: 0 },
+  hesitant: { bY: 3, bT: 8, lid: .12, mouth: -.5, lP: .8, lD: .7, tilt: 8, dip: 10 },
+  glance:   { bY: 1, bT: 0, lid: 0, mouth: 0, lP: .9, lD: .1, tilt: 2, dip: 0 },
+  indiff:   { bY: -1, bT: 0, lid: .38, mouth: -.02, lP: 0, lD: 0, tilt: 0, dip: 0 },
+  // acting: first throw = absent-minded, eyes up and ahead; second = checks around; later = shrugging, bored, half-smile
+  absent:   { bY: -1, bT: 0, lid: .22, mouth: .3, lP: .2, lD: -.2, tilt: -2.5, dip: -3 },
+  sideeye:  { bY: 3, bT: 3, lid: .02, mouth: -.15, lP: -1.3, lD: .05, tilt: -4, dip: 1 },
+  shrug:    { bY: 1, bT: 0, lid: .2, mouth: .2, lP: .35, lD: 0, tilt: 2, dip: -1 },
+  aim:      { bY: 0, bT: 0, lid: .18, mouth: .15, lP: .6, lD: .7, tilt: 1.5, dip: 4 },   // later throwers: the pile is simply 'the place', eyes on it, no doubt
+  normal:   { bY: -1, bT: 0, lid: .3, mouth: .4, lP: .2, lD: 0, tilt: -1.5, dip: -3 },
+};
+function expAt(g, t) {
+  let i = 0; for (let k = 0; k < g.ex.length; k++) if (t >= g.ex[k][0]) i = k;
+  const cur = EXP[g.ex[i][1]], prev = EXP[g.ex[Math.max(0, i - 1)][1]], w = i === 0 ? 1 : sm((t - g.ex[i][0]) / .4), o = {};
+  for (const k in cur) o[k] = lerp(prev[k], cur[k], w); return o;
+}
+
+// ---------------- DOM: persistent parts ----------------
+const gWide = mk('g', {}, S), gClose = mk('g', { display: 'none' }, S), gEnd = mk('g', { display: 'none' }, S);
+const ASC = .85;
+const wBG = mk('g', {}, gWide), gAct = mk('g', { transform: `translate(${960 * (1 - ASC)} ${960 * (1 - ASC)}) scale(${ASC})` }, gWide), wPileVec = mk('g', {}, gAct), wPileImg = mk('g', {}, gAct), wPeople = mk('g', {}, gAct), wHeldImg = mk('g', {}, gAct), wHeldVec = mk('g', {}, gAct);
+const wHandTop = mk('g', {}, gAct);
+const cBG = mk('g', {}, gClose), cPileVec = mk('g', {}, gClose), cImg = mk('g', {}, gClose), cFG = mk('g', {}, gClose);
+const HAIR = { s1: '#2a2523', s2: '#4a3028', s3: '#2a2f33', s4a: '#8c8c8c', s4b: '#2c2c35', s4c: '#2a2523', s5: '#2c2e38' };
+const C = {};
+const wLight = mk('g', { 'pointer-events': 'none' }, gWide);
+const gVig = mk('g', {}, S); gVig.innerHTML = '<defs><radialGradient id="vg2" cx=".5" cy=".5" r=".78"><stop offset=".5" stop-color="#0d1320" stop-opacity="0"/><stop offset="1" stop-color="#0d1320" stop-opacity=".5"/></radialGradient></defs><rect width="1080" height="1920" fill="url(#vg2)"/>';
+function buildBG() {
+  let o = `<rect x="-400" y="-500" width="2720" height="2300" fill="#e9e5dc"/><rect x="-400" y="-500" width="1850" height="1200" fill="#d9d4c9"/><rect x="1450" y="-500" width="870" height="1200" fill="#c9c3b6"/>`;
+  for (let i = 0; i < 4; i++) o += `<rect x="${150 + i * 330}" y="150" width="190" height="260" rx="6" fill="#b9c4c9" opacity=".75"/>`;
+  o += `<rect x="1530" y="170" width="260" height="360" rx="6" fill="#aab5ba" opacity=".7"/><rect x="1446" y="-500" width="8" height="1200" fill="#bbb5a8"/><rect x="-400" y="700" width="2720" height="40" fill="#cfc9bd"/><rect x="-200" y="740" width="2320" height="800" fill="#d6d1c6"/>`;
+  for (let i = -4; i < 16; i++) o += `<line x1="${i * 170 + 40}" y1="740" x2="${(i * 170 + 40) + (i * 70 - 200) * 760 / 340}" y2="1500" stroke="#c4beb1" stroke-width="3"/>`;
+  o += `${[900, 1000, 1120, 1260, 1420].map(y => `<line x1="-200" y1="${y}" x2="2120" y2="${y}" stroke="#c4beb1" stroke-width="3"/>`).join("")}`;
+  // tall street lamp behind the pile: pole leaves the top of the frame, arm bends over the rubbish
+  o += `<rect x="1283" y="40" width="22" height="860" fill="#7d8287"/><rect x="1283" y="40" width="7" height="860" fill="#9aa0a5"/><rect x="1268" y="870" width="52" height="36" rx="5" fill="#6f7479"/><ellipse cx="1294" cy="910" rx="48" ry="9" fill="#000" opacity=".12"/><path d="M1294 70Q1294 28 1250 28L1030 28" stroke="#7d8287" stroke-width="16" fill="none" stroke-linecap="round"/><path d="M1052 30L1020 30L1008 56L1064 56Z" fill="#5f6469"/><ellipse cx="1036" cy="58" rx="30" ry="7" fill="#fff4cf"/>`;
+  wBG.innerHTML = o;
+  wLight.innerHTML = `<defs><linearGradient id="lc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0c0" stop-opacity=".62"/><stop offset=".55" stop-color="#ffe8ac" stop-opacity=".22"/><stop offset="1" stop-color="#ffe8ac" stop-opacity=".12"/></linearGradient>
+<radialGradient id="lp" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff2c4" stop-opacity=".42"/><stop offset="1" stop-color="#fff2c4" stop-opacity="0"/></radialGradient>
+<radialGradient id="vg" cx=".5" cy=".58" r=".75"><stop offset=".45" stop-color="#0d1320" stop-opacity="0"/><stop offset="1" stop-color="#0d1320" stop-opacity=".5"/></radialGradient></defs>
+<filter id="lb" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14"/></filter><path d="M1006 58L1066 58L1380 950L650 950Z" fill="url(#lc)" filter="url(#lb)"/>
+<ellipse cx="1025" cy="860" rx="400" ry="105" fill="url(#lp)"/>`;  wBG.innerHTML = o;
+  let c = `<rect x="-600" y="-600" width="3120" height="2400" fill="#d3cec3"/>`;
+  for (let i = -3; i < 8; i++) c += `<line x1="${i * 420 + 60}" y1="-600" x2="${i * 420 + 60}" y2="1800" stroke="#bdb7aa" stroke-width="5"/>`;
+  c += `<line x1="-600" y1="330" x2="2520" y2="330" stroke="#bdb7aa" stroke-width="5"/><rect x="-600" y="960" width="3120" height="800" fill="#c2bcaf"/>`;
+  cBG.innerHTML = c;
+}
+
+// ---------------- all-vector body rig, 3/4 walk (only the head is raster) ----------------
+const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.min(255, Math.round(parseInt(hex.substr(i, 2), 16) * k)).toString(16).padStart(2, '0')).join('');
+const RAD = Math.PI / 180, nrm = a => [Math.cos(a), -Math.sin(a)], AH = 17;
+const RIGX = {
+  s1: { ty: 'jacket', inner: '#e0cfb6', iw: .3, yb: 352, toe: 46, heel: 16, hold: [6, 12] },
+  s2: { ty: 'sweater', yb: 318, toe: 44, heel: 16, hold: [6, 108] },
+  s3: { ty: 'shirt', inner: '#f1efe9', pack: '#7a523b', yb: 362, toe: 46, heel: 16, hold: [6, 12] },
+  s4a: { ty: 'sweater', collar: '#dad3bf', yb: 314, toe: 46, heel: 16, hold: [6, 12] },
+  s4b: { ty: 'jacket', inner: '#2b2c37', iw: .34, yb: 318, toe: 40, heel: 14, hold: [6, 12] },
+  s4c: { ty: 'hoodie', inner: '#f4f0e9', yb: 322, toe: 44, heel: 16, hold: [6, 12] },
+  s5: { ty: 'jacket', inner: '#6c6f73', iw: .32, yb: 324, toe: 44, heel: 16, hold: [6, 12] },
+};
+function rigSpec(d, n) {
+  if (d._rs) return d._rs;
+  const V = d.vec, R = RIGX[n], A = V.arms, lg = V.legs, fr = A.find(a => !a.carry) || A[0];
+  const hip0 = lg.top + 14, ground = d.h, Ltot = (ground - AH - hip0) / .985;
+  const Wsh = Math.abs(A[1].S[0] - A[0].S[0]), hipW = lg.R.t[1] - lg.L.t[0];
+  d._rs = { R, hip0, ground, Ltot, Wsh, hipW, xm: d.xm, shJ: fr.S[1], shY: d.neck + 22, hem: R.yb,
+    L1a: Math.hypot(fr.E[0] - fr.S[0], fr.E[1] - fr.S[1]), L2a: Math.max(70, Math.hypot(fr.H[0] - fr.E[0], fr.H[1] - fr.E[1]) - 20),
+    wT: .88 * (lg.L.t[1] - lg.L.t[0]), wB: .6 * .88 * (lg.L.t[1] - lg.L.t[0]), hcx: d.parts.head.ncx, nw: d.parts.head.nw, ns: (R.ty === 'sweater' && !R.collar) ? .27 : R.ty === 'shirt' ? .24 : .15 };
+  return d._rs;
+}
+function mkLeg(d, n, par) {
+  const V = d.vec.legs, L = { g: par };
+  L.foot = mk('g', {}, par);
+  L.shoe = mk('path', { fill: V.sh.c, stroke: shade(V.sh.c, .7), 'stroke-width': 1.4, 'stroke-linejoin': 'round' }, L.foot);
+  L.sole = mk('path', { fill: V.sh.sole }, L.foot);
+  L.ank = V.skin ? mk('path', { fill: V.skin }, par) : null;
+  L.pants = mk('path', { fill: V.pants, stroke: V.pants, 'stroke-width': 1.2, 'stroke-linejoin': 'round' }, par);
+  L.cuff = mk('path', { fill: shade(V.pants, .82) }, par);
+  L.crease = mk('path', { fill: 'none', stroke: shade(V.pants, .86), 'stroke-width': 1.3, 'stroke-linecap': 'round' }, par);
+  return L;
+}
+function poseLeg(L, d, rs, Hp, Kp, Ap, fa, mx, sq) {
+  const R = rs.R, wT = rs.wT, wB = rs.wB, wK = wT * .78, wCa = wT * .9, Cc = [Kp[0] + (Ap[0] - Kp[0]) * .3, Kp[1] + (Ap[1] - Kp[1]) * .3];
+  const a1 = Math.atan2(Kp[0] - Hp[0], Kp[1] - Hp[1]), a2 = Math.atan2(Ap[0] - Kp[0], Ap[1] - Kp[1]), n1 = nrm(a1), n2 = nrm(a2);
+  let nk = [n1[0] + n2[0], n1[1] + n2[1]]; const nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk = [nk[0] / nl / cs, nk[1] / nl / cs];
+  const hasSk = !!L.ank, up = [Hp[0] - Math.sin(a1) * 8, Hp[1] - Math.cos(a1) * 8], Ae = [Ap[0] - Math.sin(a2) * (hasSk ? 11 : 4), Ap[1] - Math.cos(a2) * (hasSk ? 11 : 4)];
+  const P = (c, n, w, k) => `${f(c[0] + n[0] * w / 2 * k)} ${f(c[1] + n[1] * w / 2 * k)}`;
+  L.pants.setAttribute('d', `M${P(up, n1, wT, -1)}L${P(Kp, nk, wK, -1)}Q${P(Cc, n2, wCa * 1.12, -1)} ${P(Ae, n2, wB, -1)}L${P(Ae, n2, wB, 1)}Q${P(Cc, n2, wCa * 1.12, 1)} ${P(Kp, nk, wK, 1)}L${P(up, n1, wT, 1)}Z`);
+  const hb = [Ae[0] - Math.sin(a2) * 8, Ae[1] - Math.cos(a2) * 8];
+  L.cuff.setAttribute('d', `M${P(hb, n2, wB, -1)}L${P(Ae, n2, wB, -1)}L${P(Ae, n2, wB, 1)}L${P(hb, n2, wB, 1)}Z`);
+  L.crease.setAttribute('d', `M${P(Kp, nk, wK, -.35)}q${f(-nk[0] * 3)} 7 ${f(2)} 13`);
+  if (L.ank) L.ank.setAttribute('d', `M${P(Ae, n2, wB * .75, -1)}L${P([Ap[0], Ap[1] + 4], n2, wB * .75, -1)}L${P([Ap[0], Ap[1] + 4], n2, wB * .75, 1)}L${P(Ae, n2, wB * .75, 1)}Z`);
+  const hl = R.heel, tl = R.toe;
+  L.shoe.setAttribute('d', `M${-hl + 4} -15L${-hl} 6Q${-hl - 1} ${AH} ${-hl + 7} ${AH}L${tl - 12} ${AH}Q${tl} ${AH} ${tl} 8Q${tl - 1} 0 ${tl - 16} -5Q6 -9 8 -15Z`);
+  L.sole.setAttribute('d', `M${-hl} 11L${tl} 10Q${tl} ${AH} ${tl - 12} ${AH}L${-hl + 7} ${AH}Q${-hl - 1} ${AH} ${-hl} 11Z`);
+  L.foot.setAttribute('transform', `translate(${f(Ap[0])} ${f(Ap[1])}) rotate(${f(fa * mx)}) scale(${f(mx * sq)} 1)`);
+}
+const HAND_R = 'M-9 0H9V26Q9 37 0 37Q-9 37 -9 26Z', HAND_F = 'M-10 0H10V24Q10 34 0 34Q-10 34 -10 24Z';
+function mkArm(d, a, par) {
+  const A = { a, g: mk('g', {}, par), sk: d.skin }, sk = d.skin, sl = d.sleeve, ss = shade(sk, .8);
+  A.fore = mk('path', { fill: sk }, A.g);
+  A.hand = mk('g', {}, A.g);
+  A.hi = mk('g', {}, A.hand); A.ss = ss;
+  A.slo = mk('path', { fill: shade(sl, .8), stroke: shade(sl, .8), 'stroke-width': 9, 'stroke-linejoin': 'round' }, A.g);
+  A.capo = mk('circle', { fill: shade(sl, .8) }, A.g); A.sl = mk('path', { fill: sl, stroke: sl, 'stroke-width': 5, 'stroke-linejoin': 'round' }, A.g);
+  A.cap = mk('circle', { fill: sl }, A.g); A.eb = mk('circle', { fill: sl }, A.g);
+  A.cuff = mk('path', { fill: shade(sl, .82) }, A.g); A.fold = mk('path', { fill: 'none', stroke: shade(sl, .8), 'stroke-width': 2, 'stroke-linecap': 'round' }, A.g);
+  return A;
+}
+function poseArm(A, S, E, H, holding, mir) {
+  const s = A.a, h = [H[0] - E[0], H[1] - E[1]], hl = Math.hypot(h[0], h[1]) || 1, u = [h[0] / hl, h[1] / hl];
+  const Wr = [H[0] - u[0] * 20, H[1] - u[1] * 20], C = [E[0] + h[0] * s.tc, E[1] + h[1] * s.tc];
+  const [wS, wE, wC] = s.w.map(v => v * .72), a1 = Math.atan2(E[0] - S[0], E[1] - S[1]), a2 = Math.atan2(C[0] - E[0], C[1] - E[1]), n1 = nrm(a1), n2 = nrm(a2);
+  let nk = [n1[0] + n2[0], n1[1] + n2[1]]; const nl = Math.hypot(nk[0], nk[1]) || 1, cs = Math.max(.75, nl / 2); nk = [nk[0] / nl / cs, nk[1] / nl / cs];
+  const P = (c, n, w, k) => `${f(c[0] + n[0] * w / 2 * k)} ${f(c[1] + n[1] * w / 2 * k)}`;
+  const sd = `M${P(S, n1, wS - 5, -1)}L${P(E, nk, wE - 5, -1)}L${P(C, n2, wC - 5, -1)}L${P(C, n2, wC - 5, 1)}L${P(E, nk, wE - 5, 1)}L${P(S, n1, wS - 5, 1)}Z`; A.sl.setAttribute('d', sd); A.slo.setAttribute('d', sd);
+  A.cap.setAttribute('cx', f(S[0])); A.cap.setAttribute('cy', f(S[1] + 3)); A.cap.setAttribute('r', f(wS / 2 - 1)); A.capo.setAttribute('cx', f(S[0])); A.capo.setAttribute('cy', f(S[1] + 3)); A.capo.setAttribute('r', f(wS / 2 + 1.5));
+  A.eb.setAttribute('cx', f(E[0])); A.eb.setAttribute('cy', f(E[1])); A.eb.setAttribute('r', f(wE / 2 - 1));
+  const cb = [C[0] - Math.sin(a2) * 8, C[1] - Math.cos(a2) * 8]; A.cuff.setAttribute('d', `M${P(cb, n2, wC + 2, -1)}L${P(C, n2, wC + 2, -1)}L${P(C, n2, wC + 2, 1)}L${P(cb, n2, wC + 2, 1)}Z`);
+  A.fold.setAttribute('d', `M${P(E, nk, wE, .3)}q${f(-3)} 9 ${f(2)} 20`);
+  const sw = (s.skinw || 20) * .85; A.fore.setAttribute('d', `M${P(C, n2, sw, -1)}L${P(Wr, n2, sw * .9, -1)}L${P(Wr, n2, sw * .9, 1)}L${P(C, n2, sw, 1)}Z`);
+  const th = Math.atan2(-u[0], u[1]) / RAD, sc = 1.85;
+  A.hand.setAttribute('transform', `translate(${f(Wr[0])} ${f(Wr[1])}) rotate(${f(th)}) scale(${mir * .26} .26) translate(0 52)`);
+  const gr = holding ? 1 : .35, key = (gr + '|' + mir); if (A.hk !== key) { A.hk = key; A.hi.innerHTML = handShape(A.sk, gr, mir > 0 ? 'L' : 'R', A.ss); }
+}
+function ik2(L1, L2, tx, ty) {
+  const dd = Math.min(Math.max(Math.hypot(tx, ty), Math.abs(L1 - L2) + .5), L1 + L2 - .5), a = Math.acos(cl((L1 * L1 + dd * dd - L2 * L2) / (2 * L1 * dd), -1, 1)), th = Math.atan2(tx, ty) + a;
+  return [L1 * Math.sin(th), L1 * Math.cos(th), th];
+}
+function footTraj(cc, S, lift) {
+  cc = ((cc % 1) + 1) % 1;
+  if (cc < .6) { const s = cc / .6; return { u: lerp(S, -S, s), v: 0, a: lerp(-8, 24, s * s) }; }
+  const s = (cc - .6) / .4, e = s * s * (3 - 2 * s); return { u: lerp(-S, S, e), v: Math.sin(Math.PI * Math.pow(s, .75)) * lift, a: lerp(28, -18, Math.pow(s, .6)) };
+}
+const carryLimb = g => g.carry == null ? -1 : (g.sgn > 0 ? 1 : 0);
+function shiftXAt(g, t) { let s = 0; (g.shift || []).forEach(q => { s += 7 * sm((t - q) / .5) * (1 - sm((t - q - .9) / .6)); }); return s; }
+// pure pose of the whole body in cut coordinates (so hands can be queried without drawing)
+function rigPose(g, t) {
+  const n = g.ch, d = CHARS[n], rs = rigSpec(d, n), R = rs.R, st = pState(g, t), k = K * g.sz, dF = st.dirF, ex = expAt(g, t);
+  const amp = cl(st.amp, 0, 1.2), aw = cl(amp * 1.7, 0, 1), cyc = st.ph / (2 * Math.PI), shiftX = shiftXAt(g, t);
+  const psiT = (90 - 35 * dF + 5 * Math.sin(2 * Math.PI * cyc) * aw) * RAD, psiL = lerp(90 - 35 * dF, 90 - 90 * dF, aw) * RAD;
+  const cT = Math.cos(psiT), sT = Math.sin(psiT), cL = Math.cos(psiL), sL = Math.max(Math.sin(psiL), .2);
+  const cycCut = 2 * Math.PI * STRIDE / k, S = Math.min(.21 * cycCut, .2 * rs.Ltot), Lh = rs.Ltot / 2;
+  const hf = lerp(.985, .962 + .02 * Math.cos(4 * Math.PI * (cyc - .3)), aw), hipY = rs.ground - AH - rs.Ltot * hf, dy = hipY - rs.hip0;
+  const lean = (2 + aw * 4 + aw * 1.2 * Math.cos(4 * Math.PI * (cyc - .3)) + ex.dip * .15) * RAD, tl = Math.tan(lean), cx = rs.xm + shiftX + Math.sin(2 * Math.PI * cyc) * 3.4 * aw;
+  const off = y => (rs.hip0 - y) * tl * cT;     // forward lean shear, y in rest coordinates
+  const legs = [], arms = [], th = [];
+  for (let i = 0; i < 2; i++) {
+    const w = i ? 1 : -1, tr = footTraj(cyc + (i ? 0 : .5), S, 28), uI = i ? 9 : -9;
+    const u = lerp(uI, tr.u, aw), v = lerp(0, tr.v, aw), a = lerp(0, tr.a, aw), hx = cx - w * (rs.hipW / 4) * sL;
+    const kn = ik2(Lh, Lh, u, rs.ground - AH - v - hipY);
+    legs.push({ H: [hx, hipY], K: [hx + kn[0] * cL, hipY + kn[1]], A: [hx + u * cL, rs.ground - AH - v], fa: a }); th.push(kn[2] / RAD);
+  }
+  const ci = carryLimb(g), ci_it = g.carry != null ? ITEMS[g.carry] : null, rel = ci_it && ci_it.tr ? sm((t - ci_it.tr) / .45) : 0;
+  for (let i = 0; i < 2; i++) {
+    const w = i ? 1 : -1, WfS = lerp(rs.Wsh * 1.1, rs.hipW * 1.04, cl((rs.shJ - rs.shY) / (rs.hem - rs.shY), 0, 1)), hw = Math.max(rs.Wsh / 2 - 4, .5 * Math.hypot(WfS * sT, WfS * .62 * cT) + 1) / Math.max(sT, .3), Sx = cx + off(rs.shJ) - w * hw * sT, Sy = rs.shJ + dy;
+    const sw0 = 6 - 1.25 * th[i] * aw + Math.sin(t * 1.3 + i) * 1.2, freeT = cl(sw0, -14, 30), fwd = cl((freeT - 6) / 20, -1, 1), free = [freeT, 8 + aw * (10 + 16 * Math.max(0, -fwd) + 6 * Math.max(0, fwd))];
+    let t1 = freeT, bd = free[1], holding = false;
+    if (i === ci) { const sw = 3 * Math.sin(4 * Math.PI * (cyc - .12)) * aw; t1 = lerp(R.hold[0] + sw, freeT, rel); bd = lerp(R.hold[1], free[1], rel); holding = rel < .5; }
+    const t2 = t1 + bd; const cA = lerp(cT, cL, aw), E = [Sx + rs.L1a * Math.sin(t1 * RAD) * cA - w * 4 * sT, Sy + rs.L1a * Math.cos(t1 * RAD)];
+    const Wp = [E[0] + rs.L2a * Math.sin(t2 * RAD) * cA, E[1] + rs.L2a * Math.cos(t2 * RAD)], H = [Wp[0] + 21 * Math.sin(t2 * RAD) * cA, Wp[1] + 21 * Math.cos(t2 * RAD)];
+    arms.push({ S: [Sx, Sy], E, H, holding });
+  }
+  const N = [cx + off(d.neck) + cT * rs.Wsh * rs.ns, d.neck + dy];
+  return { d, n, rs, R, st, k, ex, aw, psiT, psiL, cT, sT, cL, sL, cx, dy, off, hipY, legs, arms, N, shiftX, ci };
+}
+function handAt(g, t) {
+  const P = rigPose(g, t), H = P.arms[P.ci >= 0 ? P.ci : 1].H;
+  return [P.st.x + P.k * (H[0] - P.rs.xm), GY + P.k * (H[1] - P.d.h)];
+}
+function torsoSVG(P) {
+  const { d, rs, R, cx, dy, off, psiT, cT, sT, psiL } = P, main = d.sleeve, sk = d.skin;
+  const Wf = y => lerp(rs.Wsh * 1.1, rs.hipW * 1.04, cl((y - rs.shY) / (rs.hem - rs.shY), 0, 1)), hw = y => .5 * Math.hypot(Wf(y) * sT, Wf(y) * .62 * cT);
+  const ctr = y => cx + off(y), Lx = y => ctr(y) - hw(y), Rx = y => ctr(y) + hw(y), Y = y => y + dy, fl = y => cl(ctr(y) + cT * Wf(y) * .26, Lx(y) + 9, Rx(y) - 9);
+  const y0 = rs.shY, y1 = rs.hem, ym = (y0 + y1) / 2;
+  let s = '', back = '';
+  const body = `M${f(Lx(y0 + 20))} ${f(Y(y0 + 20))}Q${f(Lx(y0 + 4))} ${f(Y(y0 + 2))} ${f(Lx(y0) + 18)} ${f(Y(y0))}L${f(Rx(y0) - 18)} ${f(Y(y0))}Q${f(Rx(y0 + 4))} ${f(Y(y0 + 2))} ${f(Rx(y0 + 20))} ${f(Y(y0 + 20))}L${f(Rx(ym))} ${f(Y(ym))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}L${f(Lx(ym))} ${f(Y(ym))}Z`;
+  // neck
+  if (!d.noneck) s += `<rect x="${f(ctr(d.neck) + cT * rs.Wsh * rs.ns - rs.nw / 2)}" y="${f(Y(d.neck - 4))}" width="${rs.nw}" height="${f(rs.shY - d.neck + 18)}" rx="8" fill="${sk}"/>`;
+  s += `<path d="${body}" fill="${main}" stroke="${main}" stroke-width="3" stroke-linejoin="round"/>`;
+  const dk = shade(main, .78), mid = shade(main, .9);
+  if (R.ty === 'jacket') {
+    const sw = Math.max(5, rs.Wsh * R.iw * .5 * sT), a = fl(y0 + 30), top = [a - sw * 1.5, a + sw * 1.5];
+    s += `<path d="M${f(top[0])} ${f(Y(y0 + 2))}L${f(top[1])} ${f(Y(y0 + 2))}L${f(a + sw)} ${f(Y(y1))}L${f(a - sw)} ${f(Y(y1))}Z" fill="${R.inner}"/>`;
+    s += `<path d="M${f(top[0])} ${f(Y(y0 + 2))}L${f(a - sw)} ${f(Y(y1))}M${f(top[1])} ${f(Y(y0 + 2))}L${f(a + sw)} ${f(Y(y1))}" stroke="${dk}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+    s += `<path d="M${f(top[0])} ${f(Y(y0))}L${f(top[0] - 14)} ${f(Y(y0 + 8))}L${f(top[0] - 2)} ${f(Y(y0 + 26))}ZM${f(top[1])} ${f(Y(y0))}L${f(top[1] + 14)} ${f(Y(y0 + 8))}L${f(top[1] + 2)} ${f(Y(y0 + 26))}Z" fill="${mid}" stroke="${dk}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    s += `<path d="M${f(Lx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".55"/>`;
+  } else if (R.ty === 'sweater') {
+    s += R.collar ? `<path d="M${f(fl(y0) - 17)} ${f(Y(y0 - 1))}L${f(fl(y0) + 17)} ${f(Y(y0 - 1))}L${f(fl(y0))} ${f(Y(y0 + 24))}Z" fill="${R.collar}" stroke="${shade(R.collar, .8)}" stroke-width="1.6" stroke-linejoin="round"/>` :
+      `<ellipse cx="${f(fl(y0))}" cy="${f(Y(y0 + 3))}" rx="${f(8 + 9 * sT)}" ry="11" fill="${sk}"/><path d="M${f(fl(y0) - 8 - 9 * sT)} ${f(Y(y0 + 3))}Q${f(fl(y0))} ${f(Y(y0 + 20))} ${f(fl(y0) + 8 + 9 * sT)} ${f(Y(y0 + 3))}" stroke="${dk}" stroke-width="3" fill="none"/>`;
+    s += `<path d="M${f(Lx(y1 - 12))} ${f(Y(y1 - 12))}L${f(Rx(y1 - 12))} ${f(Y(y1 - 12))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".5"/>`;
+    s += `<path d="M${f(Lx(ym) + 10)} ${f(Y(ym - 30))}q-3 22 3 44M${f(Rx(ym) - 12)} ${f(Y(ym - 26))}q3 20 -2 40" stroke="${mid}" stroke-width="2" fill="none" stroke-linecap="round"/>`;
+  } else if (R.ty === 'shirt') {
+    const a = fl(y0 + 30);
+    s += `<path d="M${f(a)} ${f(Y(y0 + 6))}L${f(a)} ${f(Y(y1))}" stroke="${dk}" stroke-width="2.2"/>`;
+    for (let q = 0; q < 4; q++) s += `<circle cx="${f(a + 5)}" cy="${f(Y(y0 + 52 + q * 50))}" r="2.6" fill="${dk}"/>`;
+    s += `<path d="M${f(a)} ${f(Y(y0 + 24))}L${f(a - 20)} ${f(Y(y0 - 1))}L${f(a - 4)} ${f(Y(y0 - 1))}ZM${f(a)} ${f(Y(y0 + 24))}L${f(a + 20)} ${f(Y(y0 - 1))}L${f(a + 4)} ${f(Y(y0 - 1))}Z" fill="${mid}" stroke="${dk}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    const sx = cl(ctr(y0 + 20) - cT * Wf(y0) * .2 + hw(y0) * .5, Lx(y0 + 20) + 10, Rx(y0 + 20) - 10);
+    s += `<path d="M${f(sx)} ${f(Y(y0 + 2))}Q${f(sx - 4)} ${f(Y(y0 + 70))} ${f(sx - 6)} ${f(Y(y0 + 126))}" stroke="${R.pack}" stroke-width="9" fill="none" stroke-linecap="round"/>`;
+    const bw = 40 + 8 * sT, bx = ctr(y0 + 70) - Math.sign(cT || 1) * Math.min(1, Math.abs(cT) * 1.8) * (hw(y0 + 70) + 2);
+    back += `<rect x="${f(bx - bw / 2)}" y="${f(Y(y0 + 14))}" width="${f(bw)}" height="150" rx="14" fill="${R.pack}" stroke="${shade(R.pack, .75)}" stroke-width="2"/><rect x="${f(bx - bw / 2 + 4)}" y="${f(Y(y0 + 100))}" width="${f(bw - 8)}" height="54" rx="9" fill="${shade(R.pack, .86)}"/>`;
+  } else if (R.ty === 'hoodie') {
+    const a = fl(y0 + 30), pw = Wf(ym) * .56;
+    s += `<path d="M${f(a - 15)} ${f(Y(y0 - 1))}L${f(a + 15)} ${f(Y(y0 - 1))}L${f(a)} ${f(Y(y0 + 20))}Z" fill="${R.inner}"/>`;
+    s += `<path d="M${f(a - 7)} ${f(Y(y0 + 14))}L${f(a - 9)} ${f(Y(y0 + 70))}M${f(a + 7)} ${f(Y(y0 + 14))}L${f(a + 9)} ${f(Y(y0 + 66))}" stroke="#bda98f" stroke-width="2.4" stroke-linecap="round"/>`;
+    s += `<path d="M${f(a - pw / 2)} ${f(Y(y1 - 66))}L${f(a + pw / 2)} ${f(Y(y1 - 66))}L${f(a + pw / 2 + 6)} ${f(Y(y1 - 14))}L${f(a - pw / 2 - 6)} ${f(Y(y1 - 14))}Z" fill="${mid}" stroke="${dk}" stroke-width="2" stroke-linejoin="round"/>`;
+    s += `<path d="M${f(Lx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1 - 9))} ${f(Y(y1 - 9))}L${f(Rx(y1))} ${f(Y(y1))}L${f(Lx(y1))} ${f(Y(y1))}Z" fill="${dk}" opacity=".5"/>`;
+    back += `<ellipse cx="${f(ctr(d.neck + 10) - cT * 9)}" cy="${f(Y(d.neck + 14))}" rx="${f(34 + 14 * sT)}" ry="30" fill="${dk}"/>`;
+  }
+  const hs = hw(rs.hem) - 3;
+  return { s, back, pelvis: [cx + off(rs.hem) - hs, Y(rs.hem - 24), hs * 2, P.hipY + 14 - Y(rs.hem - 24)] };
+}
+
+CHARS.s4c.hflip = -1; CHARS.s3.hflip = -1; CHARS.s3.hdn = 16; CHARS.s3.hbk = 9; CHARS.s3.noneck = true; CHARS.s4a.hbk = -7;
+function buildChars() {
+  for (const n in CHARS) {
+    const d = CHARS[n], g = mk('g', { display: 'none' }, wPeople), o = { d, g };
+    const img = (p, par) => mk('image', { href: p.src, x: p.x, y: p.y, width: p.w, height: p.h }, par);
+    o.shadow = mk('ellipse', { cx: d.xm, cy: d.h - 2, rx: (d.xr - d.xl) * .62, ry: 13, fill: '#000', opacity: .11 }, g);
+    o.lgF = mk('g', { style: n === 's5' ? '' : 'filter:brightness(.88)' }, g); o.lgN = mk('g', {}, g); o.back = mk('g', {}, g);
+    o.agF = mk('g', { style: 'filter:brightness(.9)' }, g); o.mid = mk('g', {}, g); o.agN = mk('g', {}, g);
+    o.legs = [mkLeg(d, n, mk('g', {}, o.lgN)), mkLeg(d, n, mk('g', {}, o.lgN))];
+    o.pelvis = mk('rect', { rx: 6, fill: d.vec.legs.pants }, o.mid); o.torso = mk('g', {}, o.mid);
+    o.arms = d.vec.arms.map(a => mkArm(d, a, mk('g', {}, o.agN)));
+    o.handTop = mk('g', { display: 'none' }, wHandTop); o.ci = -2; o.nearI = -1;
+    o.head = mk('g', {}, g); img(d.parts.head, o.head);
+    const fc = mk('g', {}, o.head), sk = d.skin, mc = '#9c5a49';
+    o.p = []; o.eye = []; o.brow = [];
+    for (let s = 0; s < 2; s++) {
+      const [ex, ey] = d.eyes[s], [bx, by] = d.brows[s], bw = d.brows[2];
+      if (!d.glasses) mk('ellipse', { cx: ex, cy: (ey + by) / 2 + 1, rx: bw * .85, ry: (ey - by) / 2 + 8, fill: sk }, fc);
+      else mk('ellipse', { cx: ex, cy: ey, rx: 6.5, ry: 7, fill: sk }, fc);
+      o.eye.push(mk('ellipse', { cx: ex, cy: ey, rx: 4.4, ry: 5.6, fill: '#26211f' }, fc));
+      o.brow.push(mk('path', { d: '', stroke: HAIR[n], 'stroke-width': 3.6, 'stroke-linecap': 'round', fill: 'none' }, fc));
+    }
+    mk('ellipse', { cx: d.mouth[0], cy: d.mouth[1], rx: 15, ry: 6, fill: sk }, fc);
+    o.mouth = mk('path', { d: '', stroke: mc, 'stroke-width': 2.8, 'stroke-linecap': 'round', fill: 'none' }, fc);
+    if (d.item) { o.itW = mk('image', { href: d.item.src, x: -999, y: -999, width: d.item.w, height: d.item.h, display: 'none' }, wHeldImg); }
+    C[n] = o;
+  }
+  // persistent image items: pile / held / close-up copies
+  for (let i = 0; i < ITEMS.length; i++) {
+    const it = ITEMS[i]; if (!it.img) continue; const d = CHARS[it.img].item;
+    it.eP = mk('image', { href: d.src, width: d.w, height: d.h, display: 'none' }, wPileImg);
+    it.eH = mk('image', { href: d.src, width: d.w, height: d.h, display: 'none' }, wHeldImg);
+    it.eC = mk('image', { href: d.src, width: d.w, height: d.h, display: 'none' }, cImg);
+    it.d = d; it.bx = d.w / 2; it.by = d.h;           // origin = bottom-centre of the item artwork
+    it.hand = CHARS[it.img].hand; { const GR = { s1: [0, -108], s2: [0, -30], s3: [0, -70], s5: [0, -14] }[it.img]; it.gx = GR[0]; it.gy = GR[1]; }
+  }
+}
+
+// ---------------- physics ----------------
+function fallState(kind, s, ul) {   // s: 0..1 flight progress; ul: seconds since landing
+  let y = kind === 'light' || kind === 'wrap' ? Math.pow(s, 1.45) : s * s, x = kind === 'wrap' ? Math.sin(s * 9) * 22 * (1 - s) : 0, r = kind === 'light' ? 34 * (1 - s) : 0;
+  let by = 0, sx = 1, sy = 1, dr = 0, dx = 0;
+  if (ul >= 0) {
+    if (kind === 'heavy') { by = -5 * Math.sin(Math.PI * cl(ul / .2)); sy = 1 - .10 * Math.exp(-ul * 22) * (ul < .25 ? 1 : 0); sx = 1 + .06 * (1 - sy) * 10; }
+    if (kind === 'medium') { by = -10 * Math.sin(Math.PI * cl(ul / .22)); dr = 4 * Math.sin(ul * 18) * Math.exp(-ul * 7); }
+    if (kind === 'light') { by = -7 * Math.sin(Math.PI * cl(ul / .2)); dr = 12 * eo(ul / .45); dx = 16 * eo(ul / .45); }
+    if (kind === 'wrap') { by = -3 * Math.sin(Math.PI * cl(ul / .2)); dx = 12 * eo(ul / .35); }
+  }
+  return { y, x, r, by, sx, sy, dr, dx };
+}
+
+// ---------------- persons ----------------
+function pState(g, t) {
+  const x = xAt(g, t), v = pv(g.vk, t), dirF = dirAt(g, t), amp = cl(v / 290, 0, 1.15);
+  const ph = x * g.sgn / STRIDE; return { x, v, dir: dirF >= 0 ? 1 : -1, dirF, amp, ph };
+}
+function drawPerson(g, t, tw) {
+  const P = rigPose(g, t), o = C[g.ch], d = P.d, rs = P.rs, st = P.st, k = P.k, ex = expAt(g, t), m = P.cT >= 0 ? 1 : -1;
+  const toward = Math.sign(X0 - st.x) || 1;
+  const tf = `translate(${f(st.x)} ${f(GY)}) scale(${f(k)} ${f(k)}) translate(${-rs.xm} ${-d.h})`;
+  o.g.setAttribute('display', ''); o.g.setAttribute('transform', tf);
+  // depth order: the limbs on the viewer's side go in front of the torso
+  const nearI = P.cT >= 0 ? 1 : 0, farI = 1 - nearI;
+  if (o.nearI !== nearI) { o.nearI = nearI; o.lgF.appendChild(o.legs[farI].g); o.lgN.appendChild(o.legs[nearI].g); o.agF.appendChild(o.arms[farI].g); o.agN.appendChild(o.arms[nearI].g); }
+  const mx = P.cL >= 0 ? 1 : -1, sq = Math.max(Math.abs(P.cL), .55);
+  P.legs.forEach((L, i) => poseLeg(o.legs[i], d, rs, L.H, L.K, L.A, L.fa, mx, sq));
+  // the carrying hand lives on a top layer so the fingers sit in front of the item
+  if (o.ci !== P.ci) { if (o.ci >= 0) { const pa = o.arms[o.ci]; pa.g.insertBefore(pa.hand, pa.slo); } if (P.ci >= 0) { o.handTop.appendChild(o.arms[P.ci].hand); } o.ci = P.ci; }
+  P.arms.forEach((a, i) => poseArm(o.arms[i], a.S, a.E, a.H, a.holding, m));
+  const ts = torsoSVG(P); o.torso.innerHTML = ts.s; o.back.innerHTML = ts.back;
+  o.pelvis.setAttribute('x', f(ts.pelvis[0])); o.pelvis.setAttribute('y', f(ts.pelvis[1])); o.pelvis.setAttribute('width', f(ts.pelvis[2])); o.pelvis.setAttribute('height', f(ts.pelvis[3]));
+  o.handTop.setAttribute('display', P.ci >= 0 ? '' : 'none'); o.handTop.setAttribute('transform', tf);
+  // head + face (raster head, turned with the torso; flips only while the body is edge-on)
+  const cy_ = st.ph / (2 * Math.PI), hlag = P.aw * 4.5 * (Math.cos(4 * Math.PI * (cy_ - .4)) - Math.cos(4 * Math.PI * (cy_ - .3)));
+  const mh = m * (d.hflip || 1), sqx = .86 + .14 * P.sT, hcx = rs.hcx, tilt = ex.tilt * toward * mh - Math.sin(st.ph) * 1.2 * st.amp + 1.6 * P.aw * Math.sin(2 * Math.PI * cy_ - .6);
+  o.head.setAttribute('transform', `translate(${f(P.N[0] - hcx + ex.tilt * .25 * toward * m - m * (d.hbk || 0))} ${f(P.dy + ex.dip + (d.hdn || 0) + hlag)}) rotate(${f(tilt)} ${f(hcx)} ${d.neck}) translate(${f(hcx)} ${d.neck}) scale(${f(mh * sqx)} 1) translate(${f(-hcx)} ${-d.neck})`);
+  const blinkP = ((t + d.h * .013) % 3.9), bl = blinkP < .16 ? Math.sin(Math.PI * blinkP / .16) : 0, lid = cl(ex.lid + bl * (1 - ex.lid), -.25, .95);
+  for (let s = 0; s < 2; s++) {
+    const [px, py] = d.eyes[s], lx = ex.lP * toward * mh * 2.8, ly = ex.lD * 3;
+    o.eye[s].setAttribute('cx', f(px + lx)); o.eye[s].setAttribute('cy', f(py + ly + lid * 1.2)); o.eye[s].setAttribute('ry', f(5.6 * (1 - lid) + .6));
+    o.eye[s].setAttribute('rx', f(4.4 + (lid < 0 ? -lid * 2 : 0)));
+    const [bx, by] = d.brows[s], bw = d.brows[2], inner = s === 0 ? 1 : -1, ey = d.glasses ? -12 : 0;
+    const up = ex.bY + (lid > .3 ? 1.5 : 0), tl = Math.sin(ex.bT * Math.PI / 180) * bw * .5;
+    const xo = bx - bw * .6 * inner, xi = bx + bw * .6 * inner, yy = by + ey - up;
+    o.brow[s].setAttribute('d', `M${f(xo)} ${f(yy + tl * .35 + (lid > .3 ? 1.2 : 0))} L${f(xi)} ${f(yy - tl)}`);
+  }
+  const [mx2, my] = d.mouth, mc = ex.mouth * 5.5;
+  o.mouth.setAttribute('d', `M${mx2 - 8} ${f(my - Math.max(0, mc) * .2)} Q${mx2} ${f(my + mc + 1.5)} ${mx2 + 8} ${f(my - Math.max(0, mc) * .2 - (ex.bT > 4 ? 1.2 : 0))}`);
+  o.shadow.setAttribute('cx', f(P.cx)); o.shadow.setAttribute('cy', d.h - 2);
+  st.dir = m;
+  return { st, k, bob: 0, shiftX: P.shiftX, idle: 0 };
+}
+
+// ---------------- items in wide ----------------
+function itemTransform(i, st) {   // helper for image items: screen bottom-centre
+  return st;
+}
+function placeImg(el, x, y, rot, s, bx, by, sx = 1, sy = 1) {
+  el.setAttribute('display', ''); el.setAttribute('transform', `translate(${f(x)} ${f(y)}) rotate(${f(rot)}) scale(${f(s * sx)} ${f(s * sy)}) translate(${-bx} ${-by})`);
+}
+function vecStr(type, x, y, rot, s, sx = 1, sy = 1, shadow = true) {
+  return (shadow ? `<ellipse cx="${f(x)}" cy="${f(y + 2)}" rx="${f(46 * s)}" ry="${f(7 * s)}" fill="#000" opacity=".08"/>` : '') + `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(rot)}) scale(${f(s * sx)} ${f(s * sy)})">${vec(type)}</g>`;
+}
+const wideRest = it => [X0 + it.dx * SW, GY - DEPTH - it.dy * SW];
+function drawWide(t) {
+  gClose.setAttribute('display', 'none'); gEnd.setAttribute('display', 'none'); gWide.setAttribute('display', '');
+  let pv_ = '', hv = '';
+  for (const n in C) { C[n].g.setAttribute('display', 'none'); C[n].handTop.setAttribute('display', 'none'); }
+  // persons first (so hand positions are known)
+  const act = {}, info = {};
+  SEGS.forEach((g, gi) => { if (t >= g.a && t < g.b) { const x = xAt(g, t); if (x > -330 && x < 2250) { act[gi] = g; info[gi] = drawPerson(g, t, { tilt: 0 }); } } });
+  ITEMS.forEach((it, i) => { if (it.eP) { it.eP.setAttribute('display', 'none'); it.eH.setAttribute('display', 'none'); it.eC.setAttribute('display', 'none'); } });
+  for (const n in C) if (C[n].itW) C[n].itW.setAttribute('display', 'none');
+  ITEMS.forEach((it, i) => {
+    const kind = ITEM_KIND[i], [rx, ry] = wideRest(it), sc = it.img ? K : SW;
+    if (t >= it.land) { // resting (with settle motion for a moment)
+      const fs = fallState(kind, 1, t - it.land), settle = it.close || it.wide ? fs : { by: 0, sx: 1, sy: 1, dr: 0, dx: 0 };
+      if (it.img) placeImg(it.eP, rx + settle.dx, ry + settle.by, it.rot + settle.dr, sc, it.bx, it.by, settle.sx, settle.sy);
+      else pv_ += vecStr(it.type, rx + settle.dx, ry + settle.by, it.rot + settle.dr, sc, settle.sx, settle.sy);
+      return;
+    }
+    // carried / in flight
+    const gi = Object.keys(act).find(q => act[q].carry === i && (!it.tr || true));
+    if (gi === undefined) return;
+    const g = act[gi], inf = info[gi], d = CHARS[g.ch];
+    if (it.wide && t >= it.tr) { // released in wide: fall from hand to pile
+      const stR = pState(g, it.tr), [hx, hy] = handAt(g, it.tr), s = cl((t - it.tr) / FALLT[kind]), fs = fallState(kind, s, -1);
+      const gr = it.img ? [it.gx, it.gy] : GRAB[it.type]; const sx0 = hx - gr[0] * sc * .0, y0 = hy - gr[1] * sc; // bottom-centre start under the hand
+      const X = lerp(hx, rx, sm(s)) + fs.x, Y = lerp(y0, ry, fs.y), R = lerp(0, it.rot, sm(s)) + fs.r;
+      if (it.img) placeImg(it.eH, X, Y, R, sc, it.bx, it.by); else hv += vecStr(it.type, X, Y, R, sc, 1, 1, false);
+      return;
+    }
+    if (it.tr && t >= it.close?.a && !(RWM && t < it.close.a + .45)) return;   // after cut handled in close-up
+    // in the hand (pendulum)
+    const [hx, hy] = handAt(g, t), pend = Math.sin(inf.st.ph + .9) * 7 * inf.st.amp + inf.shiftX * .4 + Math.sin(t * 2.3) * .6;
+    let slip = 0; if (g.slip && g.carry === i) slip = g.slip[2] * sm((t - g.slip[0]) / (g.slip[1] - g.slip[0])) * K * g.sz;
+    if (it.img) { const gx = it.gx * sc * inf.st.dir, gy = it.gy * sc, r = pend * inf.st.dir * -1, c = Math.cos(r * Math.PI / 180), s_ = Math.sin(r * Math.PI / 180);
+      placeImg(it.eH, hx - (gx * c - gy * s_), hy + slip - (gx * s_ + gy * c), r, sc * 1, it.bx, it.by, inf.st.dir < 0 ? -1 : 1, 1); }
+    else { const gr = GRAB[it.type]; hv += vecStr(it.type, hx, hy + slip - gr[1] * sc, pend * inf.st.dir * -1, sc, 1, 1, false); }
+  });
+  wPileVec.innerHTML = pv_; wHeldVec.innerHTML = hv;
+}
+
+// ---------------- close-ups ----------------
+function handShape(sk, grip, side, st) {
+  const sp = lerp(26, 6, grip), fl = lerp(86, 70, grip), sg = side === 'L' ? 1 : -1, a = st ? ` stroke="${st}" stroke-width="5" stroke-linejoin="round"` : '';
+  let o = '';
+  for (let q = -1; q <= 1; q++) o += `<rect x="${q * 40 - 17}" y="10" width="34" height="${fl}" rx="17" fill="${sk}"${a} transform="rotate(${q * sp} ${q * 40} 10)"/>`;
+  o += `<ellipse cx="0" cy="-6" rx="74" ry="62" fill="${sk}"${a}/>`;
+  o += `<ellipse cx="${sg * 62}" cy="22" rx="20" ry="38" fill="${sk}"${a} transform="rotate(${-20 * sg} ${sg * 62} 22)"/>`;
+  return o;
+}
+function drawHand(c, hx, hy, grip, ch, side, E) {
+  const d = CHARS[ch], sl = d.sleeve, sk = d.skin;
+  const [ex, ey] = E, ang = Math.atan2(hy - ey, hx - ex), len = Math.hypot(hx - ex, hy - ey), cx = (hx + ex) / 2, cy = (hy + ey) / 2;
+  let o = `<line x1="${f(ex)}" y1="${f(ey)}" x2="${f(hx)}" y2="${f(hy - 20)}" stroke="${sl}" stroke-width="132" stroke-linecap="round"/>`;
+  const wx = hx - Math.cos(ang) * 78, wy = hy - Math.sin(ang) * 78;
+  o += `<line x1="${f(wx - Math.cos(ang) * 22)}" y1="${f(wy - Math.sin(ang) * 22)}" x2="${f(wx)}" y2="${f(wy)}" stroke="#000" stroke-opacity=".12" stroke-width="134" stroke-linecap="butt"/>`;
+  o += `<ellipse cx="${f(hx)}" cy="${f(hy - 6)}" rx="74" ry="62" fill="${sk}"/>`;
+  const sp = lerp(26, 6, grip), fl = lerp(86, 70, grip);
+  for (let q = -1; q <= 1; q++) o += `<rect x="${f(hx + q * 40 - 17)}" y="${f(hy + 10)}" width="34" height="${f(fl)}" rx="17" fill="${sk}" transform="rotate(${f(q * sp)} ${f(hx + q * 40)} ${f(hy + 10)})"/>`;
+  o += `<ellipse cx="${f(hx + (side === 'L' ? 62 : -62))}" cy="${f(hy + 22)}" rx="20" ry="38" fill="${sk}" transform="rotate(${side === 'L' ? -20 : 20} ${f(hx + (side === 'L' ? 62 : -62))} ${f(hy + 22)})"/>`;
+  return o;
+}
+function drawClose(t, C0) {
+  gWide.setAttribute('display', 'none'); gEnd.setAttribute('display', 'none'); gClose.setAttribute('display', '');
+  ITEMS.forEach(it => { if (it.eP) { it.eP.setAttribute('display', 'none'); it.eH.setAttribute('display', 'none'); it.eC.setAttribute('display', 'none'); } });
+  const u = t - C0.a, it = ITEMS[C0.idx], kind = ITEM_KIND[C0.idx], sc = (it.img ? K : SW) * M, dxT = it.dx;
+  const X = dx => 960 + (dx - dxT) * SW * M, Y = dy => GYC - dy * SW * M;
+  let pv_ = '', fg = '';
+  ITEMS.forEach((p, i) => {
+    if (i === C0.idx || p.land > C0.a + .001) return; const s = (p.img ? K : SW) * M;
+    if (p.img) placeImg(p.eC, X(p.dx), Y(p.dy), p.rot, s, p.bx, p.by); else pv_ += vecStr(p.type, X(p.dx), Y(p.dy), p.rot, s);
+  });
+  const tx = X(dxT), ty = Y(it.dy), tr = C0.desc + C0.hes, ul = u - tr - FALLT[kind];
+  const gr = it.img ? [it.gx, it.gy] : GRAB[it.type];        // grab point relative to bottom-centre (item units)
+  const lift = 150, side = C0.side === 'L' ? -1 : 1, drift = C0.drift;
+  const hold0 = [tx + drift * (u - tr) * .0, ty - lift];     // item bottom-centre while held
+  const entry = [tx + side * 1100, ty - lift - 420], E = [tx + side * 1000, ty - lift - 520];
+  // hand path
+  let bx, by, hesWob = C0.hes > .6 ? Math.sin(Math.PI * cl((u - C0.desc) / C0.hes)) : 0;
+  const a1 = eo(u / C0.desc);
+  bx = lerp(entry[0], hold0[0], a1) - side * 30 * hesWob + drift * (u - C0.desc) * (drift ? 1 : 0) * .6;
+  by = lerp(entry[1], hold0[1], a1) - 22 * hesWob;
+  if (u < C0.desc) bx = lerp(entry[0], hold0[0], a1);
+  const released = u >= tr, fs = released ? fallState(kind, cl((u - tr) / FALLT[kind]), (u - tr) - FALLT[kind]) : null;
+  // item position
+  let ix, iy, ir = 0, isx = 1, isy = 1;
+  const handX = bx, handY = by;
+  if (!released) { ix = handX; iy = handY - gr[1] * sc * (it.img ? 1 : 1) * 0 + 0; iy = handY - gr[1] * sc; ix = handX - gr[0] * sc; ir = Math.sin(u * 3) * 1.5; }
+  else {
+    const s = cl((u - tr) / FALLT[kind]), x0 = handX - gr[0] * sc, y0 = handY - gr[1] * sc;
+    ix = lerp(x0, tx, sm(s)) + fs.x * 2 + fs.dx * 2 + (drift && s < 1 ? drift * (u - tr) * .5 * (1 - s) : 0); iy = lerp(y0, ty, fs.y) + fs.by * M; ir = lerp(0, it.rot, sm(s)) + fs.r + fs.dr; isx = fs.sx; isy = fs.sy;
+  }
+  // hand: follows until release, then opens and retreats
+  let hx2 = handX, hy2 = handY, grip = 1;
+  if (released) { const r = u - tr; grip = 1 - sm(r / .12); const out = ei((r - .25) / .6); hx2 = handX + side * 560 * out; hy2 = handY - 260 * out + 0; if (drift) hx2 += drift * r * .6; }
+  if (it.img) placeImg(it.eC, ix, iy, ir, sc, it.bx, it.by, isx, isy); else pv_ += vecStr(it.type, ix, iy, ir, sc, isx, isy, u >= tr + FALLT[kind] * .6);
+  if (!it.img && !released) { /* vector held item already drawn */ }
+  if (u >= tr + FALLT[kind] * .5 || true) pv_ += `<ellipse cx="${f(tx)}" cy="${f(ty + 6)}" rx="${f(46 * sc)}" ry="${f(9 * sc)}" fill="#000" opacity="${f(.07 * sm((u - tr) / FALLT[kind]))}"/>`;
+  cPileVec.innerHTML = pv_;
+  cFG.innerHTML = drawHand(C0, hx2 + (grip < 1 ? 0 : 0), hy2, grip, C0.ch, C0.side === 'L' ? 'L' : 'R', E);
+}
+
+// ---------------- compose ----------------
+// ---- rewind (T 77..): one continuous reverse of the whole film, speed ramped; slow where an arm gives an item back
+const RW0 = 77, RWEND_F = 11.95, RF = 2.15;
+const RWR = [[200, 67, 9], [67, 62.4, 3], [62.4, 60.2, 2], [60.2, 54.4, 6], [54.4, 53.6, 6], [53.6, 52.6, 2.4], [52.6, 49.8, 5.5], [49.8, 47.2, 5], [47.2, 45.6, 2.4], [45.6, 43, 6], [43, 39, 3], [39, 34, 9], [34, 32, 6], [32, 28, 3], [28, 21, 8], [21, 15, 7], [15, 12, 2.2], [12, 0, 2]];
+const rwRate = ff => { for (const [hi, lo, r] of RWR) if (ff <= hi && ff > lo) return r; return 2; };
+const RWT = []; let RWEND = 0;
+(() => { let ff = RW0, T = RW0; const dt = .01; RWT.push(ff);
+  while (ff > RWEND_F && T < 200) {
+    const ramp = .12 + .88 * sm((T - RW0) / .8), brake = cl((ff - RWEND_F) / 2.6, .1, 1);   // ease in, ease out into the frozen frame
+    ff -= rwRate(ff) * RF * ramp * (ff > 20 ? 1 : brake) * dt; T += dt; RWT.push(Math.max(ff, RWEND_F)); }
+  RWEND = T; })();
+function mapT(T) { if (T < RW0) return T; const k = (T - RW0) / .01, i = Math.floor(k); if (i >= RWT.length - 1) return RWEND_F; return lerp(RWT[i], RWT[i + 1], k - i); }
+const rwRateAt = T => { const a = mapT(T - .03), b = mapT(T + .03); return Math.abs(a - b) / .06; };
+const rwTimeOf = ft => { for (let i = 0; i < RWT.length - 1; i++) if (RWT[i] >= ft && RWT[i + 1] < ft) return RW0 + (i + (RWT[i] - ft) / (RWT[i] - RWT[i + 1])) * .01; return null; };
+const gFX = mk('g', { display: 'none' }, S);
+const bf = mk('filter', { id: 'mb', x: '-5%', y: '0%', width: '110%', height: '100%' }, mk('defs', {}, S)), bfe = mk('feGaussianBlur', { stdDeviation: '0 0' }, bf);
+function rewindFX(T, t) {
+  const rr = rwRateAt(T), active = T >= RW0 && T < RWEND + .35;
+  gFX.setAttribute('display', active ? '' : 'none');
+  const bl = active ? cl((rr - 4) * 1.1, 0, 14) : 0, tgt = gWide.getAttribute('display') === 'none' ? gClose : gWide;
+  bfe.setAttribute('stdDeviation', f(bl) + ' 0'); (tgt === gWide ? gClose : gWide).removeAttribute('filter'); if (bl > .5) tgt.setAttribute('filter', 'url(#mb)'); else tgt.removeAttribute('filter');
+  if (!active) return;
+  const run = T < RWEND, mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0'), fr = String(Math.floor((t % 1) * 60)).padStart(2, '0');
+  const jit = run ? Math.sin(T * 61) * 3 : 0, bandY = ((T * 520) % 2100) - 100, flick = run ? .5 + .5 * Math.sin(T * 24) : 1;
+  let o = '';
+  for (let y = 0; y < 1920; y += 6) o += `<rect y="${y}" width="1080" height="2" fill="#000" opacity="${run ? .10 : .05}"/>`;
+  if (run) o += `<rect y="${f(bandY)}" width="1080" height="${f(26 + rr * 2)}" fill="#fff" opacity="${f(.05 + Math.min(.12, rr * .01))}"/><rect y="${f(bandY + 40)}" width="1080" height="5" fill="#fff" opacity=".14"/>`;
+  o += `<rect width="1080" height="1920" fill="#101820" opacity="${run ? f(.07 + Math.min(.12, rr * .008)) : 0}"/>`;
+  const x0 = 60 + jit; o += `<g transform="translate(${f(x0)} 230)" fill="#fff" opacity="${f(run ? .55 + .4 * flick : .9)}" font-family="Courier New, monospace"><path d="M0 0L-30 -22V22ZM34 0L4 -22V22Z" transform="translate(30 -4) scale(1.05)"/><text x="100" y="12" font-size="42" font-weight="700" letter-spacing="3">${run ? 'REW' : 'PAUSE'}</text><text x="0" y="62" font-size="34" letter-spacing="3" opacity=".85">${mm}:${ss}:${fr}</text>${run ? `<text x="238" y="12" font-size="30" opacity=".8">x${Math.max(1, Math.round(rr))}</text>` : ''}</g>`;
+  gFX.innerHTML = o;
+}
+let RWM = false;
+function frameAt(T) {
+  RWM = T >= RW0;
+  if (T >= 87) {
+    gWide.setAttribute('display', 'none'); gClose.setAttribute('display', 'none'); gEnd.setAttribute('display', ''); gVig.setAttribute('display', 'none'); gFX.setAttribute('display', 'none');
+    gEnd.innerHTML = `<rect width="1920" height="1080" fill="#000"/><g opacity="${f(sm((T - 87.6) / .6))}" fill="#f3efe6" text-anchor="middle"><text x="960" y="520" font-size="70" font-weight="700" letter-spacing="3">AND THEN IT ALL BECOMES NORMAL?</text><text x="960" y="620" font-size="34" letter-spacing="10" opacity=".8">THE 1ST THROW</text></g>`;
+    return;
+  }
+  const t = mapT(T), C0 = CLOSES.find(c => t >= c.a && t < c.b && !(T >= RW0 && t < 12.45));
+  if (C0) drawClose(t, C0); else drawWide(t);
+  const z = T < 66 ? 1 : T < RW0 ? 1 + .1 * sm((T - 66) / 11) : 1 + .1 * (1 - sm((T - RW0) / 1.1));
+  if (gWide.getAttribute('display') !== 'none') gWide.setAttribute('transform', z === 1 ? '' : `translate(935 850) scale(${z.toFixed(5)}) translate(-935 -850)`); else gWide.removeAttribute('transform');
+  gVig.setAttribute('display', gWide.getAttribute('display') === 'none' ? 'none' : '');
+  rewindFX(T, t);
+}
+
+// ================= VERTICAL (TikTok 1080x1920) =================
+const PW = mk('g', {}); [...S.children].forEach(c => { if (c !== gVig && c !== gFX) PW.appendChild(c); });
+S.insertBefore(PW, S.firstChild);
+const gCap = mk('g', {}, S), gEndP = mk('g', { display: 'none' }, S);
+const SCV = 1.5, WY = -170;           // scene scale and the scene y that sits at the top of the screen
+const EDL = [[4.6, 16.0, 1], [21.2, 32.4, 1], [36.8, 47.4, 1.25], [47.4, 62.6, 1.6], [66, 77, 1.4], [77, RWEND, 1.25], [RWEND - .2, 90, 1]];
+let OUTD = 0; EDL.forEach(e => { e.u0 = OUTD; OUTD += (e[1] - e[0]) / e[2]; }); window.VIDEO.duration = Math.ceil(OUTD * 30) / 30;
+const edlAt = u => { let k = EDL.length - 1; for (let i = 0; i < EDL.length; i++) if (u < EDL[i].u0 + (EDL[i][1] - EDL[i][0]) / EDL[i][2]) { k = i; break; } const e = EDL[k]; return { k, T: Math.min(e[1], e[0] + (u - e.u0) * e[2]), a: e[0] }; };
+const focusAt = T => T < 15.3 ? 0 : T < 21 ? 1 : T < 32.2 ? 2 : T < 34.9 ? 3 : T < 43 ? 4 : T < 47.2 ? 5 : T < 49.8 ? 6 : T < 52.6 ? 7 : T < 56.4 ? 8 : T < 62.6 ? 9 : -1;
+const scrX = x => 960 + (x - 960) * ASC;
+const camTarget = T => { const k = focusAt(T); if (k < 0) return 935; const g = SEGS[k], X = scrX(xAt(g, cl(T, g.a, g.b))); return 880 + cl((X - 880) * .6, -380, 380); };
+const camX = (T, a) => cl((camTarget(T) + camTarget(Math.max(a, T - .35)) + camTarget(Math.max(a, T - .7))) / 3, 150, 1560);
+const CAP = [[4.6, 9.4, ['ONE BAG.']], [9.6, 15.9, ["He doesn't even", 'think about it.']], [21.4, 27.0, ['She hesitates…']], [27.2, 32.4, ['…then does it too.']],
+  [36.8, 47.4, ["Now it's easier."]], [47.4, 62.6, ["Then it's habit."]], [67, 77, ['Who threw first?']], [77.3, 83, ['Go back to', 'the first throw.']]];
+const TXT = (txt, x, y, sz, fill, extra = '') => `<text x="${x}" y="${y}" font-size="${sz}" font-weight="900" fill="${fill}" stroke="#101820" stroke-width="${sz * .16}" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" ${extra}>${txt}</text>`;
+function vFrame(u) {
+  const { T, a } = edlAt(u);
+  if (T >= 87) {
+    PW.setAttribute('display', 'none'); gVig.setAttribute('display', 'none'); gFX.setAttribute('display', 'none'); gCap.innerHTML = ''; gEndP.setAttribute('display', '');
+    const o = sm((T - 87.4) / .6);
+    gEndP.innerHTML = `<rect width="1080" height="1920" fill="#000"/><g opacity="${f(o)}" fill="#f3efe6" text-anchor="middle" font-weight="900"><text x="405" y="860" font-size="84">AND THEN</text><text x="405" y="970" font-size="84">IT ALL BECOMES</text><text x="405" y="1080" font-size="84" fill="#ffd23f">NORMAL</text><text x="925" y="1080" font-size="390" fill="#ffd23f">?</text><text x="546" y="1330" font-size="44" letter-spacing="12" opacity=".8" font-weight="700">THE 1ST THROW</text></g>`;
+    return;
+  }
+  PW.removeAttribute('display'); gEndP.setAttribute('display', 'none');
+  frameAt(T);
+  const wide = gWide.getAttribute('display') !== 'none', cx = wide ? camX(T, a) : 960;
+  PW.setAttribute('transform', `translate(${f(540 - cx * SCV)} ${f(-WY * SCV)}) scale(${SCV})`);
+  const t = mapT(T), n = ITEMS.filter(it => (it.tr || it.land) <= t).length;
+  let last = -9; ITEMS.forEach(it => { const te = it.tr || it.land; if (te <= t && te > last) last = te; });
+  const pop = T < RW0 ? Math.exp(-(t - last) * 5) : 0;
+  let o = `<g font-family="Helvetica, Arial, sans-serif">`;
+  o += `<text x="1020" y="250" text-anchor="end" font-size="34" font-weight="800" letter-spacing="6" fill="#fff" stroke="#101820" stroke-width="5" paint-order="stroke">THROWS</text>`;
+  o += `<g transform="translate(1020 372) scale(${f(1 + .35 * pop)})"><text text-anchor="end" font-size="112" font-weight="900" fill="#ffd23f" stroke="#101820" stroke-width="16" paint-order="stroke">${n}</text></g>`;
+  CAP.forEach(([c0, c1, lines]) => { const al = sm((T - c0) / .3) * sm((c1 - T) / .3); if (al <= .01) return;
+    lines.forEach((ln, i) => { o += TXT(ln, 540, 440 + i * 96 + (1 - al) * 24, ln.length > 18 ? 74 : 88, i === lines.length - 1 && lines.length > 1 ? '#ffd23f' : '#fff', `opacity="${f(al)}"`); }); });
+  gCap.innerHTML = o + '</g>';
+}
+buildBG(); buildChars();
+const imgs = [...document.querySelectorAll('image')];
+Promise.all([...new Set(imgs.map(i => i.getAttribute('href')))].map(src => { const im = new Image(); im.src = src; return im.decode().catch(() => {}); })).then(() => {
+  window.seek = u => vFrame(u); window.seek(0);
+});
+
+// ---------------- audio (synthesised placeholders; swap for real foley) ----------------
+const buildAudioSrc = async ctx => {
+  const sr = ctx.sampleRate, noise = (dur, lp) => { const b = ctx.createBuffer(1, Math.ceil(dur * sr), sr), d = b.getChannelData(0); let y = 0, s = 12345; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; y += ((s / 4294967296) * 2 - 1 - y) * lp; d[i] = y; } return b; };
+  const rev = b => { const o = ctx.createBuffer(1, b.length, sr), a = b.getChannelData(0), d = o.getChannelData(0); for (let i = 0; i < a.length; i++) d[i] = a[a.length - 1 - i]; return o; };
+  const play = (buf, at, g, fq) => { const s = ctx.createBufferSource(), gn = ctx.createGain(), fl = ctx.createBiquadFilter(); s.buffer = buf; fl.type = 'lowpass'; fl.frequency.value = fq || 8000; gn.gain.value = g; s.connect(fl); fl.connect(gn); gn.connect(ctx.destination); s.start(at); };
+  // --- soft score: warm pad (Am F C G) under the film, bell motif + low pedal while the pile is held, silence into the rewind, one resolving chord on the end card
+  { const mf = n => 440 * Math.pow(2, (n - 69) / 12), master = ctx.createGain(); master.connect(ctx.destination); master.gain.value = 1;
+    const tone = (n, t0, dur, g, type, lp, att, rel) => { const o = ctx.createOscillator(), og = ctx.createGain(), fl = ctx.createBiquadFilter(); o.type = type; o.frequency.value = mf(n); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(og); og.connect(master);
+      og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(g, t0 + att); og.gain.setValueAtTime(g, t0 + dur - rel); og.gain.linearRampToValueAtTime(0, t0 + dur); o.start(t0); o.stop(t0 + dur + .05); };
+    const CH = [[45, 57, 60, 64], [41, 57, 60, 65], [48, 55, 60, 64], [43, 55, 59, 62]];
+    for (let t0 = 1, i = 0; t0 < 76.5; t0 += 6, i++) { const c = CH[i % 4], len = Math.min(7.2, 76.5 - t0), g = t0 > 62 ? .02 : .016; c.forEach((n, k) => { tone(n, t0, len, g * (k ? 1 : 1.4), 'triangle', 750 + (t0 > 62 ? 500 : 0), 2.2, 2.2); tone(n, t0, len, g * .5, 'sine', 900, 2.2, 2.2); }); }
+    // the held pile: low pedal swells, sparse bell motif
+    tone(33, 63, 14, .05, 'sine', 400, 6, 3);
+    [[64.2, 76], [66.4, 74], [68.2, 72], [70.8, 76], [73.0, 79]].forEach(([t0, n]) => { tone(n, t0, 2.4, .02, 'sine', 3000, .02, 2.3); tone(n + 12, t0, 1.4, .006, 'sine', 4000, .02, 1.3); });
+    // end card
+    [45, 52, 57, 60, 64].forEach((n, k) => tone(n, 87, 3.2, k ? .02 : .03, 'triangle', 900, 1.1, 1.8)); }
+  { const clk = noise(.08, .5); play(clk, RWEND, .5, 1800); play(clk, RWEND + .04, .25, 600); }
+  const step = noise(.12, .25), heavy = noise(.45, .07), tick = noise(.2, .3), cloth = noise(.25, .05);
+  const inClose = t => CLOSES.some(c => t >= c.a && t < c.b);
+  for (const g of SEGS) { let prev = Math.sin(pState(g, g.a).ph);
+    for (let t = g.a; t < g.b; t += .01) { const st = pState(g, t), s = Math.sin(st.ph); if (st.amp > .25 && prev * s < 0 && !inClose(t) && t < 77) play(step, t, .2 * st.amp, 1400); prev = s; } }
+  ITEMS.forEach((it, i) => { if (it.amb) return; const k = ITEM_KIND[i]; const b = k === 'heavy' ? heavy : tick, gain = k === 'heavy' ? .85 : k === 'wrap' ? .15 : .5;
+    play(b, it.land, gain, k === 'heavy' ? 650 : 2600); play(cloth, it.tr, .12, 900);
+    { const Tr = rwTimeOf(it.land); if (Tr != null) play(rev(b), Tr - .35, gain * .5, k === 'heavy' ? 650 : 2600); const Tc = rwTimeOf(it.tr); if (Tc != null) play(cloth, Tc, .1, 900); } });
+};
+
+window.buildAudio = async ctx => {
+  const sr = ctx.sampleRate, oc = new OfflineAudioContext(2, Math.ceil(sr * 90), sr); await buildAudioSrc(oc); const buf = await oc.startRendering();
+  EDL.forEach(e => { const s_ = ctx.createBufferSource(), g = ctx.createGain(), d = (e[1] - e[0]) / e[2]; s_.buffer = buf; s_.playbackRate.value = e[2]; s_.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0, e.u0); g.gain.linearRampToValueAtTime(1, e.u0 + .15); g.gain.setValueAtTime(1, e.u0 + d - .2); g.gain.linearRampToValueAtTime(0, e.u0 + d); s_.start(e.u0, e[0], e[1] - e[0]); });
+};
+</script>
+</body></html>

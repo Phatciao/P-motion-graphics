@@ -72,3 +72,7 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - P2 (second throw): hesitates while walking (speed dips to near zero, shuffles, stops), checks around (`sideeye`), looks at her hand, shrugs, then releases.
 - Later throwers: S3 and the first S4a shrug/relax; S4b, S4c, S4a (second pass) and S5 look at the pile as the obvious drop spot (`aim`), then go back to bored (`normal`/`indiff`).
 - New expression presets: absent, sideeye, shrug, normal, aim (`EXP`).
+
+## v3.0 — Bản dọc TikTok (1080x1920, ~60s)
+- `video_vertical.html`: bản dọc của video, camera bám nhân vật, cắt gọn theo EDL (~60s), chữ dẫn truyện, bộ đếm THROWS (tăng khi ném, đếm ngược khi tua), end card dọc (3 dòng + dấu "?" lớn).
+- Render: `the-1st-throw_tiktok_vertical.mp4` (60 fps, h264 + aac).
