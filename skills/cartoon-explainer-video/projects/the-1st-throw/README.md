@@ -61,3 +61,8 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 ## v2.6 (sound)
 - Removed the sawtooth tape whirr in the rewind (only the stop click stays).
 - Added a Saigon street bed: traffic rumble and wash, motorbikes passing with Doppler, car whooshes, occasional horns; thinner under the rewind and on the end card (`buildAudio`, seeded so it is repeatable).
+
+## v2.7
+- Back to the no-street-noise mix (street ambience removed); the constant low-noise bed and the rewind buzz stay removed.
+- New cinematic score (A minor, Am F C G): sub drone, slow strings, sparse piano arpeggio, a heartbeat that grows while the pile is held, riser into the rewind, falling glides during it, open chord on the end card; light convolution reverb.
+- Camera push-in no longer jumps at its first frame (pivot offset made 0 at z=1).
