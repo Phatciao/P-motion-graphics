@@ -57,3 +57,7 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Close-up sleeves slimmed (stroke 132) to match the hand and item scale.
 - Soft score: warm pad (Am F C G), low pedal + sparse bells during the held pile, tape whirr in the rewind, resolving chord on the end card.
 - Rendered at 60 fps (`render_t.mjs ... 60 1 4`).
+
+## v2.6 (sound)
+- Removed the sawtooth tape whirr in the rewind (only the stop click stays).
+- Added a Saigon street bed: traffic rumble and wash, motorbikes passing with Doppler, car whooshes, occasional horns; thinner under the rewind and on the end card (`buildAudio`, seeded so it is repeatable).
