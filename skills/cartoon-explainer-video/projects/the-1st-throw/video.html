@@ -572,8 +572,6 @@ window.buildAudio = async ctx => {
   const sr = ctx.sampleRate, noise = (dur, lp) => { const b = ctx.createBuffer(1, Math.ceil(dur * sr), sr), d = b.getChannelData(0); let y = 0, s = 12345; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; y += ((s / 4294967296) * 2 - 1 - y) * lp; d[i] = y; } return b; };
   const rev = b => { const o = ctx.createBuffer(1, b.length, sr), a = b.getChannelData(0), d = o.getChannelData(0); for (let i = 0; i < a.length; i++) d[i] = a[a.length - 1 - i]; return o; };
   const play = (buf, at, g, fq) => { const s = ctx.createBufferSource(), gn = ctx.createGain(), fl = ctx.createBiquadFilter(); s.buffer = buf; fl.type = 'lowpass'; fl.frequency.value = fq || 8000; gn.gain.value = g; s.connect(fl); fl.connect(gn); gn.connect(ctx.destination); s.start(at); };
-  const amb = ctx.createBufferSource(), ag = ctx.createGain(); amb.buffer = noise(88, .02); amb.connect(ag); ag.connect(ctx.destination);
-  ag.gain.setValueAtTime(.3, 0); ag.gain.setValueAtTime(.3, 66); ag.gain.linearRampToValueAtTime(.03, 77); ag.gain.linearRampToValueAtTime(0, 82.5); amb.start(0);
   // --- soft score: warm pad (Am F C G) under the film, bell motif + low pedal while the pile is held, silence into the rewind, one resolving chord on the end card
   { const mf = n => 440 * Math.pow(2, (n - 69) / 12), master = ctx.createGain(); master.connect(ctx.destination); master.gain.value = 1;
     const tone = (n, t0, dur, g, type, lp, att, rel) => { const o = ctx.createOscillator(), og = ctx.createGain(), fl = ctx.createBiquadFilter(); o.type = type; o.frequency.value = mf(n); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(og); og.connect(master);
