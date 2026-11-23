@@ -66,3 +66,9 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 - Back to the no-street-noise mix (street ambience removed); the constant low-noise bed and the rewind buzz stay removed.
 - Score: the original warm pad (Am F C G) with the low pedal and sparse bells while the pile is held, one chord on the end card (a cinematic rewrite was tried and dropped: the pad was preferred).
 - Camera push-in no longer jumps at its first frame (pivot offset made 0 at z=1).
+
+## v2.8 (acting)
+- P1 (first throw): absent-minded, eyes up/ahead (`absent`), shrug before releasing, never looks at the bag.
+- P2 (second throw): hesitates while walking (speed dips to near zero, shuffles, stops), checks around (`sideeye`), looks at her hand, shrugs, then releases.
+- Later throwers: S3 and the first S4a shrug/relax; S4b, S4c, S4a (second pass) and S5 look at the pile as the obvious drop spot (`aim`), then go back to bored (`normal`/`indiff`).
+- New expression presets: absent, sideeye, shrug, normal, aim (`EXP`).
