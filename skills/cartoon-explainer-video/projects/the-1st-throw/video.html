@@ -572,34 +572,17 @@ window.buildAudio = async ctx => {
   const sr = ctx.sampleRate, noise = (dur, lp) => { const b = ctx.createBuffer(1, Math.ceil(dur * sr), sr), d = b.getChannelData(0); let y = 0, s = 12345; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; y += ((s / 4294967296) * 2 - 1 - y) * lp; d[i] = y; } return b; };
   const rev = b => { const o = ctx.createBuffer(1, b.length, sr), a = b.getChannelData(0), d = o.getChannelData(0); for (let i = 0; i < a.length; i++) d[i] = a[a.length - 1 - i]; return o; };
   const play = (buf, at, g, fq) => { const s = ctx.createBufferSource(), gn = ctx.createGain(), fl = ctx.createBiquadFilter(); s.buffer = buf; fl.type = 'lowpass'; fl.frequency.value = fq || 8000; gn.gain.value = g; s.connect(fl); fl.connect(gn); gn.connect(ctx.destination); s.start(at); };
-  // --- cinematic score (A minor): sub drone, slow strings, sparse piano arpeggio, heartbeat that grows while the pile is held, riser into the rewind, descending glides during it, one open chord on the end card
-  { const mf = n => 440 * Math.pow(2, (n - 69) / 12), master = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
-    { const L = Math.floor(sr * 3.4), ib = ctx.createBuffer(2, L, sr); let sd = 4242; for (let c = 0; c < 2; c++) { const d = ib.getChannelData(c); let y = 0; for (let i = 0; i < L; i++) { sd = (sd * 1664525 + 1013904223) >>> 0; y += (((sd / 4294967296) * 2 - 1) - y) * .35; d[i] = y * Math.pow(1 - i / L, 2.6); } } conv.buffer = ib; }
-    master.gain.value = .7; wet.gain.value = .5; master.connect(ctx.destination); master.connect(conv); conv.connect(wet); wet.connect(ctx.destination);
-    const env = (g, t0, att, hold, rel, pk) => { g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(pk, t0 + att); g.gain.setValueAtTime(pk, t0 + att + hold); g.gain.linearRampToValueAtTime(0, t0 + att + hold + rel); };
-    const sine = (n, t0, dur, g, att, rel, to) => { const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'sine'; o.frequency.value = mf(n); if (to) o.frequency.exponentialRampToValueAtTime(mf(to), t0 + dur); o.connect(og); og.connect(master); env(og, t0, att, Math.max(0, dur - att - rel), rel, g); o.start(t0); o.stop(t0 + dur + .05); };
-    const string = (n, t0, dur, g, att, rel, lp) => { [-7, 0, 7].forEach(ct => { const o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), og = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = mf(n); o.detune.value = ct; fl.type = 'lowpass'; fl.frequency.setValueAtTime(lp * .55, t0); fl.frequency.linearRampToValueAtTime(lp, t0 + dur * .6); o.connect(fl); fl.connect(og); og.connect(master); env(og, t0, att, Math.max(0, dur - att - rel), rel, g); o.start(t0); o.stop(t0 + dur + .05); }); };
-    const pluck = (n, t0, g, dec) => { [[0, 1, 'triangle'], [12, .35, 'sine']].forEach(([of, k, ty]) => { const o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), og = ctx.createGain(); o.type = ty; o.frequency.value = mf(n + of); fl.type = 'lowpass'; fl.frequency.value = 2600; o.connect(fl); fl.connect(og); og.connect(master);
-        og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(g * k, t0 + .008); og.gain.exponentialRampToValueAtTime(.0001, t0 + dec); o.start(t0); o.stop(t0 + dec + .05); }); };
-    const thud = (t0, g) => { const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(78, t0); o.frequency.exponentialRampToValueAtTime(34, t0 + .22); o.connect(og); og.connect(ctx.destination); og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(g, t0 + .01); og.gain.exponentialRampToValueAtTime(.0001, t0 + .55); o.start(t0); o.stop(t0 + .6); };
-    const CH = [{ b: 33, v: [57, 60, 64, 69], ar: [69, 72, 76, 72, 64, 72, 76, 81] }, { b: 29, v: [57, 60, 65, 69], ar: [65, 69, 72, 69, 60, 69, 72, 77] }, { b: 36, v: [55, 60, 64, 67], ar: [67, 72, 76, 72, 64, 72, 79, 76] }, { b: 31, v: [55, 59, 62, 67], ar: [67, 71, 74, 71, 62, 71, 74, 79] }];
-    const BAR = 7.6, END = 76.6;
-    for (let t0 = 0, i = 0; t0 < END; t0 += BAR, i++) { const c = CH[i % 4], len = Math.min(BAR + 1.6, END - t0), lift = Math.min(1, .45 + t0 / 50);
-      sine(c.b, t0, len, .075, 2.5, 2.2); sine(c.b + 12, t0, len, .018, 3, 2.2);
-      c.v.forEach((n, k) => string(n, t0 + k * .15, len, .0055 * lift, 3.2, 2.4, 1500));
-      if (t0 >= 7.5) c.ar.forEach((n, k) => { const tt = t0 + 1.2 + k * (BAR - 1.6) / 8; if (tt < END - 1) pluck(n, tt, (.034 + .012 * (k % 3 === 0)) * (t0 > 60 ? 1.25 : 1), 2.8); }); }
-    // heartbeat: faint from 22 s, lub-dub from 63 s growing into the riser
-    for (let t0 = 22; t0 < 62; t0 += 3.8) thud(t0, .06);
-    for (let t0 = 63, k = 0; t0 < 76.6; k++) { const q = (t0 - 63) / 13.6; thud(t0, .08 + .16 * q); thud(t0 + .3, .05 + .1 * q); t0 += 1.7 - .75 * q; }
-    // riser into the rewind, then a hit and a low drop as it starts
-    { const rn = noise(14, .45), s_ = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); s_.buffer = rn; fl.type = 'bandpass'; fl.Q.value = .9; fl.frequency.setValueAtTime(250, 63); fl.frequency.exponentialRampToValueAtTime(5200, 76.9); s_.connect(fl); fl.connect(g); g.connect(master);
-      g.gain.setValueAtTime(0, 63); g.gain.linearRampToValueAtTime(.12, 76.7); g.gain.linearRampToValueAtTime(0, 77.05); s_.start(63); s_.stop(77.2); }
-    sine(33, 76.9, 3.2, .3, .02, 3, 24); thud(76.9, .5);
-    // rewind: two falling glides per second, soft, in A minor tones
-    for (let T = 77.2, k = 0; T < RWEND - .3; T += .9, k++) { const hi = [81, 79, 76, 72][k % 4]; sine(hi, T, .85, .022, .05, .45, hi - 12); }
-    // stop and end card: open chord with a long tail
-    [45, 52, 57, 60, 64, 69].forEach((n, k) => { string(n, 86.6, 3.6, .0075, .5, 2.6, 1400); if (k > 1) pluck(n + 12 * (k % 2), 87.05 + k * .12, .05, 3.2); });
-    sine(33, 86.6, 3.4, .12, .3, 2.8); thud(86.65, .3); }
+  // --- soft score: warm pad (Am F C G) under the film, bell motif + low pedal while the pile is held, silence into the rewind, one resolving chord on the end card
+  { const mf = n => 440 * Math.pow(2, (n - 69) / 12), master = ctx.createGain(); master.connect(ctx.destination); master.gain.value = 1;
+    const tone = (n, t0, dur, g, type, lp, att, rel) => { const o = ctx.createOscillator(), og = ctx.createGain(), fl = ctx.createBiquadFilter(); o.type = type; o.frequency.value = mf(n); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(og); og.connect(master);
+      og.gain.setValueAtTime(0, t0); og.gain.linearRampToValueAtTime(g, t0 + att); og.gain.setValueAtTime(g, t0 + dur - rel); og.gain.linearRampToValueAtTime(0, t0 + dur); o.start(t0); o.stop(t0 + dur + .05); };
+    const CH = [[45, 57, 60, 64], [41, 57, 60, 65], [48, 55, 60, 64], [43, 55, 59, 62]];
+    for (let t0 = 1, i = 0; t0 < 76.5; t0 += 6, i++) { const c = CH[i % 4], len = Math.min(7.2, 76.5 - t0), g = t0 > 62 ? .02 : .016; c.forEach((n, k) => { tone(n, t0, len, g * (k ? 1 : 1.4), 'triangle', 750 + (t0 > 62 ? 500 : 0), 2.2, 2.2); tone(n, t0, len, g * .5, 'sine', 900, 2.2, 2.2); }); }
+    // the held pile: low pedal swells, sparse bell motif
+    tone(33, 63, 14, .05, 'sine', 400, 6, 3);
+    [[64.2, 76], [66.4, 74], [68.2, 72], [70.8, 76], [73.0, 79]].forEach(([t0, n]) => { tone(n, t0, 2.4, .02, 'sine', 3000, .02, 2.3); tone(n + 12, t0, 1.4, .006, 'sine', 4000, .02, 1.3); });
+    // end card
+    [45, 52, 57, 60, 64].forEach((n, k) => tone(n, 87, 3.2, k ? .02 : .03, 'triangle', 900, 1.1, 1.8)); }
   { const clk = noise(.08, .5); play(clk, RWEND, .5, 1800); play(clk, RWEND + .04, .25, 600); }
   const step = noise(.12, .25), heavy = noise(.45, .07), tick = noise(.2, .3), cloth = noise(.25, .05);
   const inClose = t => CLOSES.some(c => t >= c.a && t < c.b);

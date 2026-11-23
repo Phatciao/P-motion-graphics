@@ -64,5 +64,5 @@ Placeholders drawn in code: 9 flat passer-by specs (SPEC), 6 prop types (item())
 
 ## v2.7
 - Back to the no-street-noise mix (street ambience removed); the constant low-noise bed and the rewind buzz stay removed.
-- New cinematic score (A minor, Am F C G): sub drone, slow strings, sparse piano arpeggio, a heartbeat that grows while the pile is held, riser into the rewind, falling glides during it, open chord on the end card; light convolution reverb.
+- Score: the original warm pad (Am F C G) with the low pedal and sparse bells while the pile is held, one chord on the end card (a cinematic rewrite was tried and dropped: the pad was preferred).
 - Camera push-in no longer jumps at its first frame (pivot offset made 0 at z=1).
